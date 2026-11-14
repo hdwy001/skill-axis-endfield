@@ -14,6 +14,7 @@ from .keys import MODIFIER_VKS
 from .listener import KeyListener
 from .model import Store
 from .overlay import Overlay
+from .padrouter import PadRouter
 from .player import FINISHED, IGNORED, MATCH, WRONG, Player
 from .testpanel import TestPanel
 
@@ -62,8 +63,7 @@ class Application:
         self._bind_cb = None
         self._pad_bind_cb = None
         self._hold_start = {}       # 数字键按下时刻，用于长按判定
-        self._pad_down = set()      # 手柄当前按住的键
-        self._pad_hold_start = {}   # 手柄槽位键按下时刻
+        self.pad_router = PadRouter(self.settings, self._press_vk)
 
         self.editor = Editor(self)
 
@@ -159,13 +159,9 @@ class Application:
                 cb(bit)
             return
 
-        s = self.settings
-        if phase == "down":
-            self._pad_down.add(bit)
-        else:
-            self._pad_down.discard(bit)
-
         if not self.gamepad.enabled:
+            # 关掉手柄监听时仍然记账，免得重新打开后按住的键状态不对
+            self.pad_router.feed(phase, bit, active=False)
             return
 
         if self.test_panel is not None and phase == "down":
@@ -174,32 +170,8 @@ class Application:
             except tk.TclError:
                 self.test_panel = None
 
-        # 连携技：单独一个键（默认 RB）
-        if bit == s.pad_combo:
-            if phase == "down":
-                self._press_vk(s.combo_key, hold=False)
-            return
-
-        # 槽位字母：LB + X/Y/A/B，短按=战技，长按=终结技
-        slot = s.pad_slot_of(bit)
-        if slot is None:
-            return
-
-        if phase == "down":
-            if s.pad_modifier in self._pad_down:
-                self._pad_hold_start[bit] = time.monotonic()
-            else:
-                self._pad_hold_start[bit] = None      # 没按 LB，不算技能
-            return
-
-        started = self._pad_hold_start.pop(bit, None)
-        if started is None:
-            return
-        digit = s.slot_key(slot)
-        if digit is None:
-            return
-        elapsed = (time.monotonic() - started) * 1000.0
-        self._press_vk(digit, hold=elapsed >= float(s.hold_ms))
+        # 判定规则在 app/padrouter.py（两种终结技方式都在那里）
+        self.pad_router.feed(phase, bit)
 
     def _press_vk(self, vk, hold=False):
         """把手柄动作换算成「等价的键盘按键」交给播放器。
@@ -383,7 +355,9 @@ class Application:
 
     def set_gamepad_enabled(self, enabled):
         self.gamepad.enabled = enabled
-        if enabled and not self.gamepad._thread:
+        if not enabled:
+            self.pad_router.reset()
+        elif not self.gamepad._thread:
             self.gamepad.start()
 
     # ================= 面板 =================

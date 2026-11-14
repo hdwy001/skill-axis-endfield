@@ -21,7 +21,7 @@ class SettingsDialog:
         self.win.grab_set()
 
         self._build()
-        center_window(self.win, app.root, 520, 660)
+        center_window(self.win, app.root, 520, 730)
 
     # ---------- 界面 ----------
     def _build(self):
@@ -34,7 +34,7 @@ class SettingsDialog:
         body.pack(fill="both", expand=True)
 
         # ---- 运行设置 ----
-        box1 = self._card(body, "运行设置")
+        box1, _sub1 = self._card(body, "运行设置")
         self.mode_var = tk.StringVar(value=self.s.mode)
         for val, label in (("strict", "必须按对键才推进"), ("any", "任意键推进")):
             tk.Radiobutton(
@@ -64,7 +64,7 @@ class SettingsDialog:
             font=theme.font(theme.F_BODY)).pack(fill="x", padx=8)
 
         # ---- 键位规则（只保留长按判定）----
-        box2 = self._card(body, "键位规则")
+        box2, _sub2 = self._card(body, "键位规则")
 
         row2 = tk.Frame(box2, bg=theme.PANEL)
         row2.pack(fill="x", padx=8, pady=3)
@@ -82,11 +82,27 @@ class SettingsDialog:
         tk.Label(row2, text="毫秒（默认 280）", bg=theme.PANEL, fg=theme.TEXT_MUTED,
                  font=theme.font(theme.F_TINY)).pack(side="left", padx=(8, 0))
 
-        # ---- 手柄（照游戏内规则）----
-        box3 = self._card(body, "手柄",
-                          "连携 = RB　战技/终结 = LB + 按键")
+        # ---- 手柄（长按/终结键两种方式）----
+        box3, pad_sub = self._card(body, "手柄", self._pad_rule_text())
+        self.pad_sub = pad_sub
 
         self.pad_btns = {}
+
+        # 终结技方式（对应游戏内「终结技施放动作 2」开关）
+        row_ult = tk.Frame(box3, bg=theme.PANEL)
+        row_ult.pack(fill="x", padx=8, pady=(2, 4))
+        tk.Label(row_ult, text="终结技方式", bg=theme.PANEL, fg=theme.TEXT_DIM,
+                 width=8, anchor="w",
+                 font=theme.font(theme.F_SMALL)).pack(side="left")
+        self.ult_mode_var = tk.StringVar(value=self.s.pad_ult_mode)
+        for val, label in (("hold", "长按战技键"), ("alt", "终结键 + 按键")):
+            tk.Radiobutton(
+                row_ult, text=label, value=val, variable=self.ult_mode_var,
+                command=self._on_ult_mode, bg=theme.PANEL, fg=theme.TEXT_DIM,
+                selectcolor=theme.PANEL_2, activebackground=theme.PANEL,
+                activeforeground=theme.TEXT, relief="flat", bd=0,
+                highlightthickness=0,
+                font=theme.font(theme.F_SMALL)).pack(side="left", padx=(0, 6))
 
         def add_row(key, label, value):
             r = tk.Frame(box3, bg=theme.PANEL)
@@ -98,6 +114,7 @@ class SettingsDialog:
                            activebackground=theme.PANEL_3,
                            activeforeground=theme.TEXT, relief="flat", bd=0,
                            highlightthickness=1, highlightbackground=theme.BORDER,
+                           disabledforeground=theme.TEXT_MUTED,
                            cursor="hand2", font=theme.font(theme.F_SMALL),
                            command=lambda k=key: self._bind_pad_key(k))
             pb.pack(side="left", padx=(6, 0), ipady=2, expand=True, fill="x")
@@ -105,9 +122,12 @@ class SettingsDialog:
 
         add_row("modifier", "修饰键", self._pad_name(self.s.pad_modifier))
         add_row("combo", "连携技", self._pad_name(self.s.pad_combo))
+        add_row("ult", "终结键", self._pad_name(self.s.pad_ult_modifier))
         for _i in range(4):
             add_row("slot%d" % _i, "槽位 %d" % (_i + 1),
                     self._pad_name(self.s.pad_slot_key(_i)))
+
+        self._sync_ult_row()
 
         self.hint = tk.Label(body, text="点按钮后按下对应的键即可重新绑定",
                              bg=theme.BG, fg=theme.TEXT_MUTED,
@@ -131,14 +151,36 @@ class SettingsDialog:
         f.pack(fill="x", pady=(12, 6))
         tk.Label(f, text=title, bg=theme.BG, fg=theme.TEXT,
                  font=theme.font(theme.F_SECTION, True)).pack(side="left")
+        sub_lbl = None
         if sub:
-            tk.Label(f, text=sub, bg=theme.BG, fg=theme.TEXT_MUTED,
-                     font=theme.font(theme.F_TINY)).pack(side="left", padx=(8, 0))
+            sub_lbl = tk.Label(f, text=sub, bg=theme.BG, fg=theme.TEXT_MUTED,
+                               font=theme.font(theme.F_TINY))
+            sub_lbl.pack(side="left", padx=(8, 0))
         box = tk.Frame(parent, bg=theme.PANEL, padx=4, pady=6)
         box.pack(fill="x")
-        return box
+        return box, sub_lbl
 
     # ---------- 文案 ----------
+    def _pad_rule_text(self):
+        combo = self._pad_name(self.s.pad_combo)
+        mod = self._pad_name(self.s.pad_modifier)
+        if self.s.pad_ult_mode == "alt":
+            ult = self._pad_name(self.s.pad_ult_modifier)
+            return "连携 = %s　战技 = %s + 键　终结 = %s + 键" % (combo, mod, ult)
+        return "连携 = %s　战技/终结 = %s + 键（长按）" % (combo, mod)
+
+    def _sync_ult_row(self):
+        """方式一（长按）下，终结键不可绑定。"""
+        pb = self.pad_btns.get("ult")
+        if pb is not None:
+            alt = self.s.pad_ult_mode == "alt"
+            pb.configure(state="normal" if alt else "disabled",
+                         cursor="hand2" if alt else "arrow")
+        if getattr(self, "pad_sub", None) is not None:
+            try:
+                self.pad_sub.configure(text=self._pad_rule_text())
+            except tk.TclError:
+                pass
     def _pad_name(self, bit):
         return button_name(bit, self.s.gamepad_scheme) if bit else "未设置"
 
@@ -148,9 +190,12 @@ class SettingsDialog:
                 pb.configure(text=self._pad_name(self.s.pad_modifier))
             elif key == "combo":
                 pb.configure(text=self._pad_name(self.s.pad_combo))
+            elif key == "ult":
+                pb.configure(text=self._pad_name(self.s.pad_ult_modifier))
             elif key.startswith("slot"):
                 idx = int(key[4:])
                 pb.configure(text=self._pad_name(self.s.pad_slot_key(idx)))
+        self._sync_ult_row()
 
     # ---------- 动作 ----------
     def _on_hold(self):
@@ -172,6 +217,8 @@ class SettingsDialog:
                 self.s.pad_modifier = bit
             elif key == "combo":
                 self.s.pad_combo = bit
+            elif key == "ult":
+                self.s.pad_ult_modifier = bit
             elif key.startswith("slot"):
                 idx = int(key[4:])
                 self.s.pad_slots[idx] = bit
@@ -180,6 +227,11 @@ class SettingsDialog:
             self._refresh_buttons()
 
         self.app.begin_pad_bind(on_pad)
+
+    def _on_ult_mode(self):
+        self.s.pad_ult_mode = self.ult_mode_var.get()
+        self.store.save_settings()
+        self._sync_ult_row()
 
     def _on_mode(self):
         self.s.mode = self.mode_var.get()

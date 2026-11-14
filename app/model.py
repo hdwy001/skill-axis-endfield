@@ -52,6 +52,15 @@ DEFAULT_PAD_COMBO = PAD_RB
 DEFAULT_PAD_MODIFIER = PAD_LB
 DEFAULT_PAD_SLOTS = {0: PAD_X, 1: PAD_Y, 2: PAD_A, 3: PAD_B}
 
+# 终结技施放方式（对应游戏内「终结技施放动作 2」开关）：
+#   hold = 长按战技键（动作 2 关，游戏默认）
+#   alt  = 终结键 + 槽位键（动作 2 开，默认用 RB，避免误触战技）
+PAD_ULT_HOLD = "hold"
+PAD_ULT_ALT = "alt"
+PAD_ULT_MODES = (PAD_ULT_HOLD, PAD_ULT_ALT)
+DEFAULT_PAD_ULT_MODE = PAD_ULT_HOLD
+DEFAULT_PAD_ULT_MODIFIER = PAD_RB
+
 
 def new_id():
     return uuid.uuid4().hex[:12]
@@ -225,6 +234,9 @@ class Settings:
     pad_modifier: int = DEFAULT_PAD_MODIFIER     # LB
     pad_combo: int = DEFAULT_PAD_COMBO           # RB = 连携技
     pad_slots: dict = field(default_factory=lambda: dict(DEFAULT_PAD_SLOTS))
+    # 终结技施放方式：hold = 长按战技键；alt = 终结键 + 槽位键
+    pad_ult_mode: str = DEFAULT_PAD_ULT_MODE
+    pad_ult_modifier: int = DEFAULT_PAD_ULT_MODIFIER   # alt 方式下的终结键（默认 RB）
 
     def pad_slot_key(self, slot):
         """队伍第 slot 位对应的手柄按键位。"""
@@ -273,6 +285,9 @@ class Settings:
         s.pad_slots = slots
         s.pad_modifier = int(s.pad_modifier or DEFAULT_PAD_MODIFIER)
         s.pad_combo = int(s.pad_combo or DEFAULT_PAD_COMBO)
+        if s.pad_ult_mode not in PAD_ULT_MODES:
+            s.pad_ult_mode = DEFAULT_PAD_ULT_MODE
+        s.pad_ult_modifier = int(s.pad_ult_modifier or DEFAULT_PAD_ULT_MODIFIER)
         s.hold_ms = max(60, int(s.hold_ms or DEFAULT_HOLD_MS))
         s.combo_key = int(s.combo_key or DEFAULT_COMBO_KEY)
         return s
@@ -495,6 +510,36 @@ class Store:
             self.settings.active_rotation = self.rotations[0].id if self.rotations else ""
             self.save_settings()
         self.save_rotations()
+
+    def move_rotation(self, rid, before_index):
+        """把编队移到 before_index 之前（下标按移动前的列表算）。
+
+        返回 True 表示确实动了；顺序就是编队列表的显示顺序，也是下拉/拖动顺序。
+        """
+        old = None
+        target = None
+        for i, r in enumerate(self.rotations):
+            if r.id == rid:
+                old, target = i, r
+                break
+        if target is None:
+            return False
+        if before_index is None:
+            return False
+        try:
+            before_index = int(before_index)
+        except (TypeError, ValueError):
+            return False
+        self.rotations.pop(old)
+        if before_index > old:
+            before_index -= 1
+        before_index = max(0, min(before_index, len(self.rotations)))
+        if before_index == old:
+            self.rotations.insert(old, target)      # 位置没变，放回去
+            return False
+        self.rotations.insert(before_index, target)
+        self.save_rotations()
+        return True
 
     # ---------- 导入导出 ----------
     def export_dict(self):

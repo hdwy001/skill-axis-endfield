@@ -10,6 +10,7 @@ from app.model import (Axis, KIND_COMBO, KIND_SKILL, KIND_ULT,  # noqa: E402
                        Node, ROLE_BURST, ROLE_CHARGE, Rotation, Settings,
                        Store, Team)
 from app.player import FINISHED, MATCH, WRONG, Player  # noqa: E402
+from app.padrouter import PadRouter  # noqa: E402
 
 results = []
 
@@ -416,11 +417,154 @@ def test_fonts():
     check("字体模块有 wrap 折行函数", callable(getattr(fonts, "wrap", None)))
 
 
+def _recorder():
+    got = []
+
+    def press(vk, hold=False):
+        got.append((vk, hold))
+
+    return got, press
+
+
+def test_pad_ult_hold_mode():
+    """方式一（游戏默认）：长按战技键 = 终结技。"""
+    s = Settings()
+    got, press = _recorder()
+    now = [1000.0]
+    r = PadRouter(s, press, clock=lambda: now[0])
+    lb, rb = s.pad_modifier, s.pad_combo
+    x = s.pad_slot_key(0)
+
+    r.feed("down", lb)
+    r.feed("down", x)
+    now[0] += 0.5
+    r.feed("up", x)
+    check("方式一：长按战技键 = 终结技", got == [(s.slot_key(0), True)])
+
+    got.clear()
+    now[0] += 1.0
+    r.feed("down", x)
+    now[0] += 0.05
+    r.feed("up", x)
+    check("方式一：短按战技键 = 战技", got == [(s.slot_key(0), False)])
+
+    got.clear()
+    r.feed("up", lb)
+    r.feed("down", rb)
+    check("方式一：单按连携键 = 连携", got == [(s.combo_key, False)])
+
+
+def test_pad_ult_alt_mode():
+    """方式二（终结技施放动作 2 开）：终结键 + 槽位键 = 终结技。"""
+    s = Settings()
+    s.pad_ult_mode = "alt"          # 默认终结键 = RB
+    got, press = _recorder()
+    r = PadRouter(s, press)
+    rb = s.pad_ult_modifier
+    x = s.pad_slot_key(0)
+
+    r.feed("down", rb)
+    r.feed("down", x)
+    r.feed("up", x)
+    check("方式二：终结键 + 槽位键 = 终结技",
+          got == [(s.slot_key(0), True)])
+    r.feed("up", rb)
+    check("方式二：放过终结技就不再放连携",
+          (s.combo_key, False) not in got)
+
+    got.clear()
+    r.feed("down", rb)
+    r.feed("up", rb)
+    check("方式二：单按终结键 = 连携", got == [(s.combo_key, False)])
+
+    got.clear()
+    lb = s.pad_modifier
+    now = [2000.0]
+    r.clock = lambda: now[0]
+    r.feed("down", lb)
+    r.feed("down", x)
+    now[0] += 0.5
+    r.feed("up", x)
+    r.feed("up", lb)
+    check("方式二：长按战技键不再当终结技",
+          got == [(s.slot_key(0), False)])
+
+
+def test_pad_ult_modifier_separate():
+    """终结键可以绑成另一个键（不兼作连携键）。"""
+    s = Settings()
+    s.pad_ult_mode = "alt"
+    s.pad_ult_modifier = 0x10000     # LT
+    got, press = _recorder()
+    r = PadRouter(s, press)
+    x = s.pad_slot_key(0)
+
+    r.feed("down", 0x10000)
+    r.feed("down", x)
+    r.feed("up", x)
+    r.feed("up", 0x10000)
+    check("终结键另绑：LT + 槽位 = 终结技",
+          got == [(s.slot_key(0), True)])
+
+    got.clear()
+    r.feed("down", s.pad_combo)
+    check("终结键另绑：连携键不受影响", got == [(s.combo_key, False)])
+
+
+def test_ult_mode_setting():
+    """两种终结技方式可以在设置里切换并持久化。"""
+    s = Settings()
+    check("默认终结技方式 = 长按战技键", s.pad_ult_mode == "hold")
+    check("默认终结键 = RB", s.pad_ult_modifier == 0x0200)
+
+    s2 = Settings.from_dict({"pad_ult_mode": "alt",
+                             "pad_ult_modifier": 0x10000})
+    check("终结技方式持久化", s2.pad_ult_mode == "alt")
+    check("终结键持久化", s2.pad_ult_modifier == 0x10000)
+
+    s3 = Settings.from_dict({"pad_ult_mode": "乱写的"})
+    check("非法终结技方式回退到长按", s3.pad_ult_mode == "hold")
+
+
+def test_move_rotation():
+    """编队可以拖动改顺序，且顺序会落盘。"""
+    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    tmp = os.path.join(base, "data", "_selftest_tmp7")
+    shutil.rmtree(tmp, ignore_errors=True)
+    os.makedirs(tmp, exist_ok=True)
+    store = Store(tmp)
+    a = store.active_rotation()
+    b = store.add_rotation("第二编队")
+    c = store.add_rotation("第三编队")
+
+    ok = store.move_rotation(c.id, 0)
+    check("编队可以拖到最前",
+          ok and [r.id for r in store.rotations] == [c.id, a.id, b.id])
+
+    store.move_rotation(a.id, 3)
+    check("编队可以拖到末尾",
+          [r.id for r in store.rotations] == [c.id, b.id, a.id])
+
+    check("拖回原位不算改动", store.move_rotation(c.id, 0) is False)
+
+    store.settings.active_rotation = a.id
+    store.save_settings()
+    store.commit()
+    store2 = Store(tmp)
+    check("编队顺序落盘",
+          [r.id for r in store2.rotations] == [c.id, b.id, a.id])
+    check("拖动不影响当前编队", store2.active_rotation().id == a.id)
+    shutil.rmtree(tmp, ignore_errors=True)
+
+
 def main():
     for fn in (test_segment_order, test_play_through, test_slot_mapping,
                test_combo_key, test_ult_requires_hold, test_hold_threshold_setting,
                test_infinite, test_wrong_key, test_key_map, test_any_mode,
                test_gamepad, test_skip, test_empty_segment_skipped,
+               test_pad_ult_hold_mode, test_pad_ult_alt_mode,
+               test_pad_ult_modifier_separate, test_ult_mode_setting,
+               test_move_rotation,
                test_hotdata_dirty_flow, test_per_rotation_team,
                test_rotation_team_affects_keys, test_rename_rotation,
                test_store_roundtrip, test_settings_keys, test_export_import,
@@ -432,7 +576,8 @@ def main():
 
     base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     for d in ("_selftest_tmp", "_selftest_tmp2", "_selftest_tmp3",
-              "_selftest_tmp4", "_selftest_tmp5", "_selftest_tmp6"):
+              "_selftest_tmp4", "_selftest_tmp5", "_selftest_tmp6",
+              "_selftest_tmp7"):
         shutil.rmtree(os.path.join(base, "data", d), ignore_errors=True)
 
     failed = [r for r in results if not r[1]]

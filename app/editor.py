@@ -12,11 +12,13 @@ from .model import (KIND_CN, KIND_COMBO, KIND_SKILL, KINDS, KIND_ULT,
                     ROLE_BURST, ROLE_CHARGE, ROLE_CN, Axis, Node, Team)
 from .opspicker import OperatorPicker
 from .textdialog import ask_text
-from .widgets import rounded_rect
+from .widgets import rounded_rect, truncate
 
 # 布局
 LEFT_W = 316
 AXIS_ROW_H = 56
+ROT_CHIP_H = 30
+ROT_CHIP_GAP = 6
 TEAM_CARD_W = 96
 TEAM_CARD_H = 112
 SKILL_CARD_W = 104
@@ -64,6 +66,7 @@ class Editor:
         self._ghost = None
         self._pending_drop = None
         self._rename_entry = None
+        self._rot_rects = []        # 编队（标签）位置，算拖放插入点在用
 
         self._build()
         if self.store.axes:
@@ -150,25 +153,19 @@ class Editor:
     # ---------- 左栏 ----------
     def _build_left(self):
         wrap = self.left
-        tk.Label(wrap, text="编队", bg=theme.BG, fg=theme.TEXT,
-                 font=theme.font(theme.F_SECTION, True)).pack(anchor="w", pady=(4, 6))
 
-        sel = tk.Frame(wrap, bg=theme.BG)
-        sel.pack(fill="x")
-        self.rot_var = tk.StringVar()
-        self.rot_menu = tk.OptionMenu(sel, self.rot_var, "—")
-        self.rot_menu.configure(bg=theme.PANEL_2, fg=theme.TEXT, relief="flat",
-                                bd=0, highlightthickness=1,
-                                highlightbackground=theme.BORDER,
-                                activebackground=theme.PANEL_3,
-                                activeforeground=theme.TEXT,
-                                font=theme.font(theme.F_BODY), anchor="w")
-        self.rot_menu["menu"].configure(bg=theme.PANEL_2, fg=theme.TEXT,
-                                        activebackground=theme.ACCENT,
-                                        activeforeground="#221a06",
-                                        font=theme.font(theme.F_SMALL))
-        self.rot_menu.pack(side="left", fill="x", expand=True)
-        _btn(sel, "改名", self.rename_rotation, "ghost").pack(side="left", padx=(6, 0))
+        head = tk.Frame(wrap, bg=theme.BG)
+        head.pack(fill="x", pady=(4, 4))
+        tk.Label(head, text="编队", bg=theme.BG, fg=theme.TEXT,
+                 font=theme.font(theme.F_SECTION, True)).pack(side="left")
+        tk.Label(head, text="单击切换 · 拖动排序 · 双击改名", bg=theme.BG,
+                 fg=theme.TEXT_MUTED,
+                 font=theme.font(theme.F_TINY)).pack(side="right")
+
+        # 编队标签块：一个编队一个标签，横向排，多了自动换行
+        self.rot_canvas = tk.Canvas(wrap, bg=theme.BG, highlightthickness=0,
+                                    bd=0, height=ROT_CHIP_H + 6)
+        self.rot_canvas.pack(fill="x")
 
         # 队伍阵容头像（整个编队共用）
         self.roster_canvas = tk.Canvas(wrap, bg=theme.BG, highlightthickness=0,
@@ -282,12 +279,88 @@ class Editor:
 
     # ---------- 编队 ----------
     def refresh_rotation(self):
-        menu = self.rot_menu["menu"]
-        menu.delete(0, "end")
-        for r in self.store.rotations:
-            menu.add_command(label=r.name, command=lambda n=r.name: self._pick_rotation(n))
-        rot = self.current_rotation()
-        self.rot_var.set(rot.name if rot else "—")
+        """画编队标签：当前编队高亮，点击切换、拖动改顺序、双击改名。"""
+        cv = self.rot_canvas
+        cv.delete("all")
+        self._rot_rects = []
+        rots = self.store.rotations
+        if not rots:
+            cv.create_text(4, 15, anchor="w",
+                           text="还没有编队，点下面「＋ 新建编队」",
+                           fill=theme.TEXT_MUTED, font=theme.font(theme.F_TINY))
+            cv.configure(height=ROT_CHIP_H + 6,
+                         scrollregion=(0, 0, LEFT_W, ROT_CHIP_H + 6))
+            return
+
+        rot_now = self.current_rotation()
+        active_id = rot_now.id if rot_now else ""
+        f = theme.font(theme.F_SMALL)
+        max_x = LEFT_W - 4
+        x, y = 0, 2
+        for rot in rots:
+            label = truncate(rot.name, 12)
+            w = max(56, min(f.measure(label) + 24, max_x))
+            if x > 0 and x + w > max_x:
+                x, y = 0, y + ROT_CHIP_H + ROT_CHIP_GAP
+            active = rot.id == active_id
+            tag = "rot_%s" % rot.id
+            rounded_rect(cv, x, y, x + w, y + ROT_CHIP_H, r=8,
+                         fill=theme.PANEL_3 if active else theme.PANEL_2,
+                         outline=theme.ACCENT if active else theme.BORDER,
+                         width=2 if active else 1, tags=(tag,))
+            cv.create_text(x + w / 2.0, y + ROT_CHIP_H / 2.0, text=label,
+                           fill=theme.TEXT if active else theme.TEXT_DIM,
+                           font=theme.font(theme.F_SMALL, active), tags=(tag,))
+            cv.tag_bind(tag, "<Button-1>",
+                        lambda e, r=rot: self._rot_press(r))
+            cv.tag_bind(tag, "<Double-Button-1>",
+                        lambda e, r=rot: self.rot_rename(r))
+            self._rot_rects.append((x, y, x + w, y + ROT_CHIP_H, rot))
+            x += w + ROT_CHIP_GAP
+
+        h = y + ROT_CHIP_H + 6
+        cv.configure(height=h, scrollregion=(0, 0, LEFT_W, h))
+
+    def _rot_press(self, rot):
+        """点一下切过去；按住拖动则等松手时改顺序。"""
+        self._pick_rotation(rot.name)
+        self._begin_drag({"type": "rot", "rotation": rot}, rot.name)
+
+    def _rot_drop_index(self, e):
+        """鼠标位置 -> 编队插入下标（按移动前的列表算）。"""
+        pos = self._in_canvas(self.rot_canvas, e)
+        if pos is None:
+            return None
+        px, py = pos
+        idx = 0
+        for (x1, y1, x2, y2, _rot) in self._rot_rects:
+            if py > y2:
+                idx += 1
+                continue
+            if py < y1:
+                return idx
+            if px < (x1 + x2) / 2.0:
+                return idx
+            idx += 1
+        return idx
+
+    def _draw_rot_indicator(self, idx):
+        cv = self.rot_canvas
+        cv.delete("drop_ind")
+        if idx is None or not self._rot_rects:
+            return
+        if idx >= len(self._rot_rects):
+            _x1, y1, x2, y2, _r = self._rot_rects[-1]
+            x = x2 + ROT_CHIP_GAP / 2.0
+        else:
+            x1, y1, _x2, y2, _r = self._rot_rects[idx]
+            x = x1 - ROT_CHIP_GAP / 2.0
+        cv.create_line(x, y1 + 2, x, y2 - 2, fill=theme.ACCENT, width=3,
+                       tags=("drop_ind",))
+
+    def _reorder_rotation(self, rot, idx):
+        if self.store.move_rotation(rot.id, idx):
+            self.refresh_rotation()
 
     def save_changes(self):
         # 保留给外部调用（例如菜单里的「立即保存」）
@@ -335,8 +408,8 @@ class Editor:
         self.refresh_all()
         self.app.rebuild_player()
 
-    def rename_rotation(self):
-        rot = self.current_rotation()
+    def rename_rotation(self, rot=None):
+        rot = rot or self.current_rotation()
         if not rot:
             return
         name = ask_text(self.app, "编队改名", "编队名称", rot.name)
@@ -345,6 +418,15 @@ class Editor:
         rot.name = name
         self.store.touch()
         self.refresh_rotation()
+
+    def rot_rename(self, rot=None):
+        """双击标签改名：先把可能进行中的拖动结束掉，再弹输入框。"""
+        self._end_drag()
+        rot = rot or self.current_rotation()
+        if not rot:
+            return
+        self._pick_rotation(rot.name)
+        self.rename_rotation(rot)
 
     def delete_rotation(self):
         rot = self.current_rotation()
@@ -819,6 +901,9 @@ class Editor:
         if self._drag.get("type") == "reorder":
             self._pending_drop = self._order_drop_index(e)
             self._draw_reorder_indicator(self._pending_drop)
+        elif self._drag.get("type") == "rot":
+            self._pending_drop = self._rot_drop_index(e)
+            self._draw_rot_indicator(self._pending_drop)
         else:
             self._pending_drop = self._timeline_drop_index(e)
             self._draw_drop_indicator(self._pending_drop)
@@ -884,6 +969,12 @@ class Editor:
             self._reorder_axis(drag["axis"], idx)
             return
 
+        if drag.get("type") == "rot":
+            if not moved or idx is None:
+                return
+            self._reorder_rotation(drag["rotation"], idx)
+            return
+
         if not moved:
             if drag.get("type") == "new":
                 self.add_node(self.selected_member, drag["kind"])
@@ -913,7 +1004,7 @@ class Editor:
             self.root.unbind_all("<ButtonRelease-1>")
         except tk.TclError:
             pass
-        for cv in (self.timeline, self.order_canvas):
+        for cv in (self.timeline, self.order_canvas, self.rot_canvas):
             try:
                 cv.delete("drop_ind")
             except tk.TclError:
