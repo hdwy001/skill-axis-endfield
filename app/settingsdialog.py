@@ -2,7 +2,7 @@
 """设置对话框：运行设置 + 键位映射。"""
 import tkinter as tk
 
-from . import theme
+from . import dpi, theme
 from .gamepad import button_name
 from .model import KIND_CN, KINDS
 from .widgets import center_window
@@ -25,12 +25,12 @@ class SettingsDialog:
 
     # ---------- 界面 ----------
     def _build(self):
-        head = tk.Frame(self.win, bg=theme.BG, padx=20, pady=16)
+        head = tk.Frame(self.win, bg=theme.BG, padx=dpi.S(20), pady=dpi.S(16))
         head.pack(fill="x")
         tk.Label(head, text="设置", bg=theme.BG, fg=theme.TEXT,
                  font=theme.font(theme.F_TITLE, True)).pack(side="left")
 
-        body = tk.Frame(self.win, bg=theme.BG, padx=20)
+        body = tk.Frame(self.win, bg=theme.BG, padx=dpi.S(20))
         body.pack(fill="both", expand=True)
 
         # ---- 运行设置 ----
@@ -43,7 +43,7 @@ class SettingsDialog:
                 selectcolor=theme.PANEL_2, activebackground=theme.PANEL,
                 activeforeground=theme.TEXT, relief="flat", bd=0,
                 highlightthickness=0, anchor="w",
-                font=theme.font(theme.F_BODY)).pack(fill="x", padx=8)
+                font=theme.font(theme.F_BODY)).pack(fill="x", padx=dpi.S(8))
 
         self.focus_var = tk.BooleanVar(value=bool(self.s.only_game_focus))
         tk.Checkbutton(
@@ -52,7 +52,7 @@ class SettingsDialog:
             selectcolor=theme.PANEL_2, activebackground=theme.PANEL,
             activeforeground=theme.TEXT, relief="flat", bd=0,
             highlightthickness=0, anchor="w",
-            font=theme.font(theme.F_BODY)).pack(fill="x", padx=8)
+            font=theme.font(theme.F_BODY)).pack(fill="x", padx=dpi.S(8))
 
         self.pad_var = tk.BooleanVar(value=bool(self.s.gamepad_enabled))
         tk.Checkbutton(
@@ -61,13 +61,13 @@ class SettingsDialog:
             selectcolor=theme.PANEL_2, activebackground=theme.PANEL,
             activeforeground=theme.TEXT, relief="flat", bd=0,
             highlightthickness=0, anchor="w",
-            font=theme.font(theme.F_BODY)).pack(fill="x", padx=8)
+            font=theme.font(theme.F_BODY)).pack(fill="x", padx=dpi.S(8))
 
         # ---- 键位规则（只保留长按判定）----
         box2, _sub2 = self._card(body, "键位规则")
 
         row2 = tk.Frame(box2, bg=theme.PANEL)
-        row2.pack(fill="x", padx=8, pady=3)
+        row2.pack(fill="x", padx=dpi.S(8), pady=dpi.S(3))
         tk.Label(row2, text="长按判定", bg=theme.PANEL, fg=theme.TEXT_DIM, width=8,
                  anchor="w", font=theme.font(theme.F_SMALL)).pack(side="left")
         self.hold_var = tk.StringVar(value=str(self.s.hold_ms))
@@ -77,10 +77,10 @@ class SettingsDialog:
                         buttonbackground=theme.PANEL_3, relief="flat", bd=0,
                         highlightthickness=1, highlightbackground=theme.BORDER,
                         font=theme.font(theme.F_SMALL))
-        sp.pack(side="left", ipady=2)
+        sp.pack(side="left", ipady=dpi.S(2))
         sp.bind("<KeyRelease>", lambda e: self._on_hold())
         tk.Label(row2, text="毫秒（默认 280）", bg=theme.PANEL, fg=theme.TEXT_MUTED,
-                 font=theme.font(theme.F_TINY)).pack(side="left", padx=(8, 0))
+                 font=theme.font(theme.F_TINY)).pack(side="left", padx=dpi.Spair((8, 0)))
 
         # ---- 手柄（长按/终结键两种方式）----
         box3, pad_sub = self._card(body, "手柄", self._pad_rule_text())
@@ -90,7 +90,7 @@ class SettingsDialog:
 
         # 终结技方式（对应游戏内「终结技施放动作 2」开关）
         row_ult = tk.Frame(box3, bg=theme.PANEL)
-        row_ult.pack(fill="x", padx=8, pady=(2, 4))
+        row_ult.pack(fill="x", padx=dpi.S(8), pady=dpi.Spair((2, 4)))
         tk.Label(row_ult, text="终结技方式", bg=theme.PANEL, fg=theme.TEXT_DIM,
                  width=8, anchor="w",
                  font=theme.font(theme.F_SMALL)).pack(side="left")
@@ -102,11 +102,11 @@ class SettingsDialog:
                 selectcolor=theme.PANEL_2, activebackground=theme.PANEL,
                 activeforeground=theme.TEXT, relief="flat", bd=0,
                 highlightthickness=0,
-                font=theme.font(theme.F_SMALL)).pack(side="left", padx=(0, 6))
+                font=theme.font(theme.F_SMALL)).pack(side="left", padx=dpi.Spair((0, 6)))
 
         def add_row(key, label, value):
             r = tk.Frame(box3, bg=theme.PANEL)
-            r.pack(fill="x", padx=8, pady=3)
+            r.pack(fill="x", padx=dpi.S(8), pady=dpi.S(3))
             tk.Label(r, text=label, bg=theme.PANEL, fg=theme.TEXT_DIM,
                      width=8, anchor="w",
                      font=theme.font(theme.F_SMALL)).pack(side="left")
@@ -117,7 +117,7 @@ class SettingsDialog:
                            disabledforeground=theme.TEXT_MUTED,
                            cursor="hand2", font=theme.font(theme.F_SMALL),
                            command=lambda k=key: self._bind_pad_key(k))
-            pb.pack(side="left", padx=(6, 0), ipady=2, expand=True, fill="x")
+            pb.pack(side="left", padx=dpi.Spair((6, 0)), ipady=dpi.S(2), expand=True, fill="x")
             self.pad_btns[key] = pb
 
         add_row("modifier", "修饰键", self._pad_name(self.s.pad_modifier))
@@ -132,31 +132,31 @@ class SettingsDialog:
         self.hint = tk.Label(body, text="点按钮后按下对应的键即可重新绑定",
                              bg=theme.BG, fg=theme.TEXT_MUTED,
                              font=theme.font(theme.F_TINY), anchor="w")
-        self.hint.pack(fill="x", pady=(6, 0))
+        self.hint.pack(fill="x", pady=dpi.Spair((6, 0)))
 
         # ---- 底部 ----
-        foot = tk.Frame(self.win, bg=theme.BG, padx=20, pady=14)
+        foot = tk.Frame(self.win, bg=theme.BG, padx=dpi.S(20), pady=dpi.S(14))
         foot.pack(fill="x", side="bottom")
         tk.Button(foot, text="完成", command=self.close, bg=theme.ACCENT,
                   fg="#221a06", activebackground=theme.ACCENT_SOFT,
                   activeforeground="#221a06", relief="flat", bd=0,
                   highlightthickness=0, cursor="hand2",
                   font=theme.font(theme.F_BODY, True),
-                  padx=20, pady=6).pack(side="right")
+                  padx=dpi.S(20), pady=dpi.S(6)).pack(side="right")
 
         self.win.bind("<Escape>", lambda e: self.close())
 
     def _card(self, parent, title, sub=None):
         f = tk.Frame(parent, bg=theme.BG)
-        f.pack(fill="x", pady=(12, 6))
+        f.pack(fill="x", pady=dpi.Spair((12, 6)))
         tk.Label(f, text=title, bg=theme.BG, fg=theme.TEXT,
                  font=theme.font(theme.F_SECTION, True)).pack(side="left")
         sub_lbl = None
         if sub:
             sub_lbl = tk.Label(f, text=sub, bg=theme.BG, fg=theme.TEXT_MUTED,
                                font=theme.font(theme.F_TINY))
-            sub_lbl.pack(side="left", padx=(8, 0))
-        box = tk.Frame(parent, bg=theme.PANEL, padx=4, pady=6)
+            sub_lbl.pack(side="left", padx=dpi.Spair((8, 0)))
+        box = tk.Frame(parent, bg=theme.PANEL, padx=dpi.S(4), pady=dpi.S(6))
         box.pack(fill="x")
         return box, sub_lbl
 

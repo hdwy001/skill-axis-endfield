@@ -17,7 +17,7 @@ import tkinter as tk
 
 from PIL import Image, ImageDraw
 
-from . import fonts, layeredwin, theme
+from . import dpi, fonts, layeredwin, theme
 from .gamepad import button_name
 from .keys import vk_label
 from .model import KIND_COMBO, KIND_ULT
@@ -64,13 +64,14 @@ class Overlay:
         self._img = None
         self._W = 0
         self._H = 0
+        self._u = dpi.factor()      # 高 DPI 下的物理像素倍数
 
         x, y = int(s.overlay_x), int(s.overlay_y)
         sw = app.root.winfo_screenwidth()
         sh = app.root.winfo_screenheight()
         if (x, y) in ((120, 120), (0, 0)):
-            x = max(20, (sw - 900) // 2)
-            y = max(20, sh - 260)
+            x = max(20, (sw - dpi.S(900)) // 2)
+            y = max(20, sh - dpi.S(260))
         self._x, self._y = x, y
 
         self.win = tk.Toplevel(app.root)
@@ -94,12 +95,18 @@ class Overlay:
                 pass
 
     # ---------- 尺寸 ----------
+    @property
+    def _sc(self):
+        """实际缩放 = 用户拖的缩放 × DPI 因子（绘制与命中区都用它）。"""
+        return self.scale * self._u
+
     def _metrics(self):
-        ic = max(16, int(round(B_ICON * self.scale)))
-        gap = max(2, int(round(B_GAP * self.scale)))
-        pad = max(6, int(round(B_PAD * self.scale)))
-        head = max(18, int(round(B_HEADER * self.scale)))
-        height = max(60, int(round(B_HEIGHT * self.scale)))
+        s = self._sc
+        ic = max(16, int(round(B_ICON * s)))
+        gap = max(2, int(round(B_GAP * s)))
+        pad = max(6, int(round(B_PAD * s)))
+        head = max(18, int(round(B_HEADER * s)))
+        height = max(60, int(round(B_HEIGHT * s)))
         return ic, gap, pad, head, height
 
     def _nodes(self):
@@ -121,7 +128,7 @@ class Overlay:
 
         content_w = pad * 2 + n * slot - gap
         max_w = int(self.win.winfo_screenwidth() * 0.92)
-        min_w = max(MIN_W, int(round(MIN_W * self.scale)))
+        min_w = max(MIN_W, int(round(MIN_W * self._sc)))
 
         visible = n
         if content_w > max_w:
@@ -132,7 +139,7 @@ class Overlay:
         return W, height, head, ic, slot, pad, nodes, visible
 
     def _min_width(self):
-        return max(MIN_W, int(round(MIN_W * self.scale)))
+        return max(MIN_W, int(round(MIN_W * self._sc)))
 
     # ---------- 透明度 / 显隐 ----------
     def set_opacity(self, value, persist=True):
@@ -258,8 +265,9 @@ class Overlay:
         W, H = self._W, self._H
         if W <= 0 or H <= 0:
             return "move"
-        left, right = x <= EDGE, x >= W - EDGE
-        top, bottom = y <= EDGE, y >= H - EDGE
+        edge = max(4, EDGE * self._sc)
+        left, right = x <= edge, x >= W - edge
+        top, bottom = y <= edge, y >= H - edge
         if top and left:
             return "nw"
         if top and right:
@@ -294,15 +302,16 @@ class Overlay:
             pass
 
     def _in_close(self, x, y):
-        m = max(4, int(round(4 * self.scale)))
-        cx, cy = self._W - int(round(22 * self.scale)), int(round(16 * self.scale))
-        r = int(round(11 * self.scale)) + m
+        s = self._sc
+        m = max(4, int(round(4 * s)))
+        cx, cy = self._W - int(round(22 * s)), int(round(16 * s))
+        r = int(round(11 * s)) + m
         return (cx - r) <= x <= (cx + r) and (cy - r) <= y <= (cy + r)
 
     # ---------- 交互 ----------
     def _slider_rect(self):
         """透明度滑条的命中矩形（与绘制用同一套坐标）。"""
-        s = self.scale
+        s = self._sc
         W = self._W
         head = max(18, int(round(B_HEADER * s)))
         ymid = head / 2.0
@@ -424,7 +433,6 @@ class Overlay:
         self._d = d
         self._W, self._H = W, H
         self._a = self.opacity * 255.0
-        self._sc = self.scale
 
         self._frame(d, W, H)
         self._header(d, W, head, nodes)
@@ -513,7 +521,7 @@ class Overlay:
                    self._S(ccx + cr), self._S(ccy + cr)],
                   fill=_rgba(theme.PANEL_2, self._a),
                   outline=_rgba(theme.BORDER, self._a), width=max(1, self._S(1)))
-        self._text(d, ccx, ccy, "✕", theme.F_TINY, theme.TEXT_DIM, anchor="mm",
+        self._text(d, ccx, ccy, "×", theme.F_TINY, theme.TEXT, anchor="mm",
                    bold=True)
 
         # 右侧：透明度
@@ -535,14 +543,8 @@ class Overlay:
         self._text(d, sl_x2 + 5 * s, ymid, "%d%%" % int(round(self.opacity * 100)),
                    theme.F_TINY, theme.ACCENT, anchor="lm", bold=True)
 
-        # 进度（只读，不改播放器状态）
-        idx = max(0, min(p.index, max(0, len(nodes) - 1)))
-        prog = "%d / %d" % (idx + 1, len(nodes)) if nodes else "0 / 0"
-        self._text(d, sl_x1 - 34 * s, ymid, prog, theme.F_TINY,
-                   theme.TEXT_MUTED, anchor="rm")
-
-        # 编队名 + 徽章
-        name_right = sl_x1 - 44 * s
+        # 编队名 + 徽章（进度放到左半边，别跟「透明度」挤在一起）
+        name_right = sl_x1 - 42 * s
         nm = fonts.pil_fit(name, self._fs(theme.F_BODY) * SS,
                            max(60, name_right - 14 * s - 90 * s) * SS, True)
         self._text(d, 14 * s, ymid, nm, theme.F_BODY, theme.TEXT, anchor="lm",
@@ -565,6 +567,15 @@ class Overlay:
                         r=4 * s, fill=theme.PANEL_2, outline=color, width=1)
             self._text(d, bx + bw / 2, ymid, label, theme.F_TINY, color,
                        anchor="mm", bold=True)
+
+            # 进度（只读）：紧跟在徽章后面，空间不够就不画
+            idx = max(0, min(p.index, max(0, len(nodes) - 1)))
+            prog = "%d / %d" % (idx + 1, len(nodes)) if nodes else "0 / 0"
+            pw = fonts.pil_text_width(prog, self._fs(theme.F_TINY) * SS) / SS
+            px = bx + bw + 10 * s
+            if px + pw <= name_right:
+                self._text(d, px, ymid, prog, theme.F_TINY, theme.TEXT_MUTED,
+                           anchor="lm")
 
     def _strip(self, d, W, H, head, ic, slot, pad, nodes, visible):
         if not nodes:

@@ -8,6 +8,8 @@
 import tkinter as tk
 from tkinter import font as tkfont
 
+from . import dpi
+
 # 字重名（Tk 家族名）。MiSans 装了全套字重，用真字重而不是 bold 模拟。
 FAMILY = "MiSans"
 FAMILY_BOLD = "MiSans Demibold"
@@ -58,8 +60,12 @@ def font(size, bold=False, light=False):
 
 
 def measure(text, size, bold=False, light=False):
-    """文字像素宽度。"""
-    return font(size, bold, light).measure(text)
+    """文字宽度（逻辑像素）。
+
+    Tk 按 DPI 缩放后 measure 返回物理像素，这里除回去，
+    这样调用方（布局/截断）永远只用一套逻辑坐标。
+    """
+    return font(size, bold, light).measure(text) / dpi.factor()
 
 
 def fit(text, size, max_width, bold=False, light=False):

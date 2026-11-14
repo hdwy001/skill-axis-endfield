@@ -5,7 +5,8 @@ import os
 
 import tkinter as tk
 
-from . import theme
+from . import dpi, theme
+from .scaledcanvas import ScaledCanvas
 from .widgets import center_window, rounded_rect
 
 CELL_W = 104
@@ -49,7 +50,7 @@ class OperatorPicker:
 
     # ---------- 界面 ----------
     def _build(self):
-        head = tk.Frame(self.win, bg=theme.BG, padx=18, pady=14)
+        head = tk.Frame(self.win, bg=theme.BG, padx=dpi.S(18), pady=dpi.S(14))
         head.pack(fill="x")
         tk.Label(head, text="选择干员", bg=theme.BG, fg=theme.TEXT,
                  font=theme.font(theme.F_TITLE, True)).pack(side="left")
@@ -60,12 +61,12 @@ class OperatorPicker:
                          highlightthickness=1, highlightbackground=theme.BORDER,
                          highlightcolor=theme.ACCENT, font=theme.font(theme.F_BODY),
                          width=16)
-        entry.pack(side="right", ipady=4)
+        entry.pack(side="right", ipady=dpi.S(4))
         self.query_var.trace_add("write", lambda *_: self.redraw())
 
-        wrap = tk.Frame(self.win, bg=theme.BG, padx=18)
+        wrap = tk.Frame(self.win, bg=theme.BG, padx=dpi.S(18))
         wrap.pack(fill="both", expand=True)
-        self.cv = tk.Canvas(wrap, bg=theme.BG, highlightthickness=0, bd=0)
+        self.cv = ScaledCanvas(wrap, bg=theme.BG, highlightthickness=0, bd=0)
         self.cv.pack(side="left", fill="both", expand=True)
         bar = tk.Scrollbar(wrap, command=self.cv.yview, bg=theme.BG,
                            troughcolor=theme.PANEL_2, relief="flat")
@@ -75,7 +76,7 @@ class OperatorPicker:
                      lambda e: self.cv.yview_scroll(int(-e.delta / 120), "units"))
         self.cv.bind("<Configure>", lambda e: self.redraw())
 
-        foot = tk.Frame(self.win, bg=theme.PANEL, padx=18, pady=10)
+        foot = tk.Frame(self.win, bg=theme.PANEL, padx=dpi.S(18), pady=dpi.S(10))
         foot.pack(fill="x", side="bottom")
         self.status = tk.Label(foot, text="", bg=theme.PANEL, fg=theme.TEXT_MUTED,
                                font=theme.font(theme.F_TINY), anchor="w")

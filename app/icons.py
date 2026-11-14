@@ -15,6 +15,7 @@ except Exception:  # pragma: no cover
     _HAS_PIL = False
 
 from .iconart import compose, compose_combo, compose_portrait, element_rgb
+from . import dpi
 
 IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp")
 
@@ -165,6 +166,10 @@ class IconStore:
         return None
 
     # ---------- 合成最终图标 ----------
+    def _px(self, size):
+        """逻辑尺寸 -> 物理像素（高 DPI 下图标才不发虚）。"""
+        return max(10, int(round(float(size) * dpi.factor())))
+
     def render_portrait(self, cn, size, dim=False):
         """只要干员头像，不带右下角技能图标。队伍栏用。"""
         path = self.portrait_path_cn(cn)
@@ -174,7 +179,7 @@ class IconStore:
             stamp = os.path.getmtime(path)
         except OSError:
             return None
-        size = max(10, int(size))
+        size = self._px(size)
         element = self.element_of(cn)
         key = ("portrait", path, size, element, bool(dim), stamp)
         if key in self._cache:
@@ -259,7 +264,7 @@ class IconStore:
         except OSError:
             return None
 
-        size = max(10, int(size))
+        size = self._px(size)
         key = (path, size, kind, element, bool(dim), stamp)
         if key in self._cache:
             return self._cache[key]

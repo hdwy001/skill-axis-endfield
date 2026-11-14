@@ -3,7 +3,8 @@
 import tkinter as tk
 from tkinter import filedialog
 
-from . import theme
+from . import dpi, theme
+from .scaledcanvas import ScaledCanvas
 from .widgets import center_window, rounded_rect, truncate
 
 CELL_W = 92
@@ -19,7 +20,7 @@ def _btn(parent, text, command, active=False, small=True):
         activebackground=theme.ACCENT_SOFT if active else theme.PANEL_3,
         activeforeground="#20180a" if active else theme.TEXT,
         relief="flat", bd=0, highlightthickness=0, cursor="hand2",
-        font=theme.font(9, active), padx=10, pady=4,
+        font=theme.font(9, active), padx=dpi.S(10), pady=dpi.S(4),
     )
 
 
@@ -42,7 +43,7 @@ class IconPicker:
 
     # ---------- 界面 ----------
     def _build(self):
-        head = tk.Frame(self.win, bg=theme.BG, padx=16, pady=12)
+        head = tk.Frame(self.win, bg=theme.BG, padx=dpi.S(16), pady=dpi.S(12))
         head.pack(fill="x")
 
         tk.Label(head, text="图标库", bg=theme.BG, fg=theme.TEXT,
@@ -53,23 +54,23 @@ class IconPicker:
                          fg=theme.TEXT, insertbackground=theme.TEXT, relief="flat",
                          highlightthickness=1, highlightbackground=theme.BORDER,
                          highlightcolor=theme.ACCENT, font=theme.font(10), width=18)
-        entry.pack(side="right", ipady=4, padx=(8, 0))
+        entry.pack(side="right", ipady=dpi.S(4), padx=dpi.Spair((8, 0)))
         tk.Label(head, text="搜索", bg=theme.BG, fg=theme.TEXT_MUTED,
                  font=theme.font(9)).pack(side="right")
         self.query_var.trace_add("write", lambda *_: self.redraw())
 
-        bar = tk.Frame(self.win, bg=theme.BG, padx=16)
-        bar.pack(fill="x", pady=(0, 8))
+        bar = tk.Frame(self.win, bg=theme.BG, padx=dpi.S(16))
+        bar.pack(fill="x", pady=dpi.Spair((0, 8)))
         self.filter_btns = {}
         for key, label in (("all", "全部"), ("skill", "技能"),
                            ("combo", "连携"), ("ult", "终结"), ("custom", "自定义")):
             b = _btn(bar, label, lambda k=key: self.set_kind(k), active=(key == "all"))
-            b.pack(side="left", padx=(0, 6))
+            b.pack(side="left", padx=dpi.Spair((0, 6)))
             self.filter_btns[key] = b
 
-        wrap = tk.Frame(self.win, bg=theme.BG, padx=16)
+        wrap = tk.Frame(self.win, bg=theme.BG, padx=dpi.S(16))
         wrap.pack(fill="both", expand=True)
-        self.canvas = tk.Canvas(wrap, bg=theme.BG, highlightthickness=0, bd=0)
+        self.canvas = ScaledCanvas(wrap, bg=theme.BG, highlightthickness=0, bd=0)
         self.canvas.pack(side="left", fill="both", expand=True)
         scroll = tk.Scrollbar(wrap, command=self.canvas.yview, bg=theme.BG,
                               troughcolor=theme.PANEL_2, relief="flat")
@@ -78,12 +79,12 @@ class IconPicker:
         self.canvas.bind("<MouseWheel>", lambda e: self.canvas.yview_scroll(int(-e.delta / 120), "units"))
         self.canvas.bind("<Configure>", lambda e: self.redraw())
 
-        foot = tk.Frame(self.win, bg=theme.PANEL, padx=16, pady=10)
+        foot = tk.Frame(self.win, bg=theme.PANEL, padx=dpi.S(16), pady=dpi.S(10))
         foot.pack(fill="x", side="bottom")
         self.status = tk.Label(foot, text="", bg=theme.PANEL, fg=theme.TEXT_DIM,
                                font=theme.font(9), anchor="w")
         self.status.pack(side="left")
-        _btn(foot, "从文件选择…", self.browse_file).pack(side="right", padx=(6, 0))
+        _btn(foot, "从文件选择…", self.browse_file).pack(side="right", padx=dpi.Spair((6, 0)))
         _btn(foot, "关闭", self.close).pack(side="right")
 
         self.win.bind("<Escape>", lambda e: self.close())

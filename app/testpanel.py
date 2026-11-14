@@ -2,7 +2,7 @@
 """按键测试面板：用来确认监听是否真的生效。"""
 import tkinter as tk
 
-from . import theme
+from . import dpi, theme
 from .keys import vk_label
 from .widgets import center_window
 
@@ -15,16 +15,16 @@ class TestPanel:
         self.win.configure(bg=theme.BG)
         self.win.attributes("-topmost", True)
 
-        wrap = tk.Frame(self.win, bg=theme.BG, padx=18, pady=16)
+        wrap = tk.Frame(self.win, bg=theme.BG, padx=dpi.S(18), pady=dpi.S(16))
         wrap.pack(fill="both", expand=True)
 
         tk.Label(wrap, text="按键测试", bg=theme.BG, fg=theme.TEXT,
                  font=theme.font(15, True), anchor="w").pack(fill="x")
         tk.Label(wrap, text="在任意窗口（包括游戏里）按下按键，下面会实时显示。",
                  bg=theme.BG, fg=theme.TEXT_DIM, font=theme.font(10),
-                 anchor="w").pack(fill="x", pady=(2, 12))
+                 anchor="w").pack(fill="x", pady=dpi.Spair((2, 12)))
 
-        status = tk.Frame(wrap, bg=theme.PANEL, padx=14, pady=12)
+        status = tk.Frame(wrap, bg=theme.PANEL, padx=dpi.S(14), pady=dpi.S(12))
         status.pack(fill="x")
         self.lbl_hook = tk.Label(status, text="钩子：检测中…", bg=theme.PANEL,
                                  fg=theme.TEXT_DIM, font=theme.font(10), anchor="w")
@@ -45,17 +45,17 @@ class TestPanel:
 
         self.lbl_tip = tk.Label(wrap, text="", bg=theme.BG, fg=theme.WARN,
                                 font=theme.font(10), anchor="w", justify="left",
-                                wraplength=500)
-        self.lbl_tip.pack(fill="x", pady=(6, 0))
+                                wraplength=dpi.S(500))
+        self.lbl_tip.pack(fill="x", pady=dpi.Spair((6, 0)))
 
         # 键位映射：让用户直接看到「按哪个键对应谁」
         self.lbl_map = tk.Label(wrap, text="", bg=theme.PANEL, fg=theme.TEXT_DIM,
                                 font=theme.font(10), anchor="w", justify="left",
-                                wraplength=500, padx=10, pady=8)
-        self.lbl_map.pack(fill="x", pady=(10, 0))
+                                wraplength=dpi.S(500), padx=dpi.S(10), pady=dpi.S(8))
+        self.lbl_map.pack(fill="x", pady=dpi.Spair((10, 0)))
 
         self.big = tk.Label(wrap, text="按下任意键…", bg=theme.BG, fg=theme.ACCENT,
-                            font=theme.font(22, True), pady=18)
+                            font=theme.font(22, True), pady=dpi.S(18))
         self.big.pack(fill="x")
 
         tk.Label(wrap, text="最近收到的按键", bg=theme.BG, fg=theme.TEXT_MUTED,
@@ -63,12 +63,12 @@ class TestPanel:
         self.listbox = tk.Listbox(wrap, bg=theme.PANEL, fg=theme.TEXT,
                                   selectbackground=theme.PANEL_3, relief="flat",
                                   highlightthickness=0, font=theme.font(10), height=9)
-        self.listbox.pack(fill="both", expand=True, pady=(4, 10))
+        self.listbox.pack(fill="both", expand=True, pady=dpi.Spair((4, 10)))
 
         tk.Label(wrap, text="提示：如果这里能看到按键，但游戏里悬浮窗不推进，"
                             "通常是绑定键和实际技能键不一致。",
                  bg=theme.BG, fg=theme.TEXT_MUTED, font=theme.font(9),
-                 anchor="w", wraplength=510, justify="left").pack(fill="x")
+                 anchor="w", wraplength=dpi.S(510), justify="left").pack(fill="x")
 
         self.refresh_status()
         center_window(self.win, app.root, 560, 470)
@@ -90,11 +90,16 @@ class TestPanel:
         letters = " / ".join(
             button_name(s.pad_slot_key(i), s.gamepad_scheme) or "?"
             for i in range(4))
+        if s.pad_ult_mode == "alt":
+            pult = button_name(s.pad_ult_modifier, s.gamepad_scheme)
+            pad_line = "手柄：连携 %s　战技 %s + %s　终结 %s + %s" % (
+                pcombo, pmod, letters, pult, letters)
+        else:
+            pad_line = "手柄：连携 %s　战技/终结 %s + %s（长按）" % (
+                pcombo, pmod, letters)
         return ("队伍映射：%s\n"
-                "键盘：连携 %s　长按判定 %d ms\n"
-                "手柄：连携 %s　战技/终结 %s + %s"
-                % (" · ".join(parts), combo, int(s.hold_ms),
-                   pcombo, pmod, letters))
+                "键盘：连携 %s　长按判定 %d ms\n%s"
+                % (" · ".join(parts), combo, int(s.hold_ms), pad_line))
 
     def _verdict(self, vk):
         """这颗键在当前设置下是什么含义。"""

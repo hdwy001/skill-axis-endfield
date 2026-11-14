@@ -6,11 +6,12 @@ import time
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
-from . import theme
+from . import dpi, fonts, theme
 from .keys import vk_label
 from .model import (KIND_CN, KIND_COMBO, KIND_SKILL, KINDS, KIND_ULT,
                     ROLE_BURST, ROLE_CHARGE, ROLE_CN, Axis, Node, Team)
 from .opspicker import OperatorPicker
+from .scaledcanvas import ScaledCanvas
 from .textdialog import ask_text
 from .widgets import rounded_rect, truncate
 
@@ -40,7 +41,7 @@ def _btn(parent, text, command, kind="normal"):
     return tk.Button(parent, text=text, command=command, bg=bg, fg=fg,
                      activebackground=active, activeforeground=fg,
                      relief="flat", bd=0, highlightthickness=0, cursor="hand2",
-                     font=theme.font(theme.F_SMALL), padx=12, pady=5)
+                     font=theme.font(theme.F_SMALL), padx=dpi.S(12), pady=dpi.S(5))
 
 
 def _section(parent, title, sub=None):
@@ -49,7 +50,7 @@ def _section(parent, title, sub=None):
              font=theme.font(theme.F_SECTION, True)).pack(side="left")
     if sub:
         tk.Label(f, text=sub, bg=theme.BG, fg=theme.TEXT_MUTED,
-                 font=theme.font(theme.F_TINY)).pack(side="left", padx=(8, 0))
+                 font=theme.font(theme.F_TINY)).pack(side="left", padx=dpi.Spair((8, 0)))
     return f
 
 
@@ -79,14 +80,14 @@ class Editor:
         self._build_header()
 
         body = tk.Frame(self.root, bg=theme.BG)
-        body.pack(fill="both", expand=True, padx=14, pady=(10, 12))
+        body.pack(fill="both", expand=True, padx=dpi.S(14), pady=dpi.Spair((10, 12)))
 
-        self.left = tk.Frame(body, bg=theme.BG, width=LEFT_W)
+        self.left = tk.Frame(body, bg=theme.BG, width=dpi.S(LEFT_W))
         self.left.pack(side="left", fill="y")
         self.left.pack_propagate(False)
 
         self.center = tk.Frame(body, bg=theme.BG)
-        self.center.pack(side="left", fill="both", expand=True, padx=(12, 0))
+        self.center.pack(side="left", fill="both", expand=True, padx=dpi.Spair((12, 0)))
 
         self._build_left()
         self._build_center()
@@ -96,29 +97,34 @@ class Editor:
         head.pack(fill="x")
 
         title = tk.Frame(head, bg=theme.BG_2)
-        title.pack(side="left", padx=20, pady=(12, 12))
+        title.pack(side="left", padx=dpi.S(20), pady=dpi.Spair((12, 12)))
         tk.Label(title, text="技能轴提示器", bg=theme.BG_2, fg=theme.TEXT,
                  font=theme.font(theme.F_TITLE, True)).pack(anchor="w")
         tk.Label(title, text="明日方舟：终末地 · 编队编排", bg=theme.BG_2,
                  fg=theme.TEXT_MUTED, font=theme.font(theme.F_TINY)).pack(anchor="w")
 
         right = tk.Frame(head, bg=theme.BG_2)
-        right.pack(side="right", padx=18, pady=16)
+        right.pack(side="right", padx=dpi.S(18), pady=dpi.S(16))
 
         # 权限状态：非管理员时提示（游戏里收不到按键多半是这个原因）
         self.perm_label = tk.Label(head, bg=theme.BG_2, cursor="hand2",
                                    font=theme.font(theme.F_TINY))
-        self.perm_label.pack(side="right", padx=(0, 14))
+        self.perm_label.pack(side="right", padx=dpi.Spair((0, 14)))
         self.perm_label.bind("<Button-1>", lambda e: self._on_perm_click())
         self._refresh_perm_label()
 
-        _btn(right, "打开悬浮窗", self.app.show_overlay, "primary").pack(side="left", padx=4)
-        _btn(right, "按键测试", self.app.open_test_panel, "ghost").pack(side="left", padx=4)
-        _btn(right, "导入", self.do_import, "ghost").pack(side="left", padx=4)
-        _btn(right, "导出", self.do_export, "ghost").pack(side="left", padx=4)
-        _btn(right, "设置", self.open_settings, "ghost").pack(side="left", padx=4)
+        _btn(right, "打开悬浮窗", self.app.show_overlay, "primary").pack(
+            side="left", padx=dpi.S(4))
+        _btn(right, "按键测试", self.app.open_test_panel, "ghost").pack(
+            side="left", padx=dpi.S(4))
+        _btn(right, "导入", self.do_import, "ghost").pack(
+            side="left", padx=dpi.S(4))
+        _btn(right, "导出", self.do_export, "ghost").pack(
+            side="left", padx=dpi.S(4))
+        _btn(right, "设置", self.open_settings, "ghost").pack(
+            side="left", padx=dpi.S(4))
 
-        tk.Frame(self.root, bg=theme.BORDER, height=1).pack(fill="x")
+        tk.Frame(self.root, bg=theme.BORDER, height=dpi.S(1)).pack(fill="x")
 
     def open_settings(self):
         from .settingsdialog import SettingsDialog
@@ -155,7 +161,7 @@ class Editor:
         wrap = self.left
 
         head = tk.Frame(wrap, bg=theme.BG)
-        head.pack(fill="x", pady=(4, 4))
+        head.pack(fill="x", pady=dpi.Spair((4, 4)))
         tk.Label(head, text="编队", bg=theme.BG, fg=theme.TEXT,
                  font=theme.font(theme.F_SECTION, True)).pack(side="left")
         tk.Label(head, text="单击切换 · 拖动排序 · 双击改名", bg=theme.BG,
@@ -163,81 +169,84 @@ class Editor:
                  font=theme.font(theme.F_TINY)).pack(side="right")
 
         # 编队标签块：一个编队一个标签，横向排，多了自动换行
-        self.rot_canvas = tk.Canvas(wrap, bg=theme.BG, highlightthickness=0,
+        self.rot_canvas = ScaledCanvas(wrap, bg=theme.BG, highlightthickness=0,
                                     bd=0, height=ROT_CHIP_H + 6)
         self.rot_canvas.pack(fill="x")
 
         # 队伍阵容头像（整个编队共用）
-        self.roster_canvas = tk.Canvas(wrap, bg=theme.BG, highlightthickness=0,
+        self.roster_canvas = ScaledCanvas(wrap, bg=theme.BG, highlightthickness=0,
                                        bd=0, height=AVATAR + 12)
-        self.roster_canvas.pack(fill="x", pady=(8, 0))
+        self.roster_canvas.pack(fill="x", pady=dpi.Spair((8, 0)))
 
         head = tk.Frame(wrap, bg=theme.BG)
-        head.pack(fill="x", pady=(10, 4))
+        head.pack(fill="x", pady=dpi.Spair((10, 4)))
         tk.Label(head, text="播放顺序", bg=theme.BG, fg=theme.TEXT_DIM,
                  font=theme.font(theme.F_TINY)).pack(side="left")
         tk.Label(head, text="双击改名 · 拖动整行排序", bg=theme.BG,
                  fg=theme.TEXT_MUTED, font=theme.font(theme.F_TINY)).pack(side="right")
 
-        self.order_canvas = tk.Canvas(wrap, bg=theme.BG, highlightthickness=0, bd=0)
+        self.order_canvas = ScaledCanvas(wrap, bg=theme.BG, highlightthickness=0, bd=0)
         self.order_canvas.pack(fill="both", expand=True)
 
         btns = tk.Frame(wrap, bg=theme.BG)
-        btns.pack(fill="x", pady=(8, 2))
+        btns.pack(fill="x", pady=dpi.Spair((8, 2)))
 
         self.save_label = tk.Label(btns, text=self._last_save_text(),
                                    bg=theme.BG, fg=theme.TEXT_MUTED,
                                    font=theme.font(theme.F_TINY), anchor="w")
-        self.save_label.pack(fill="x", pady=(0, 4))
+        self.save_label.pack(fill="x", pady=dpi.Spair((0, 4)))
 
         grid = tk.Frame(btns, bg=theme.BG)
-        grid.pack(fill="x", pady=2)
+        grid.pack(fill="x", pady=dpi.S(2))
         grid.columnconfigure(0, weight=1, uniform="btn")
         grid.columnconfigure(1, weight=1, uniform="btn")
 
         _btn(grid, "＋ 新建技能轴", self.new_axis, "ghost").grid(
-            row=0, column=0, sticky="ew", padx=(0, 3), pady=3)
+            row=0, column=0, sticky="ew", padx=dpi.Spair((0, 3)), pady=dpi.S(3))
         _btn(grid, "＋ 新建编队", self.new_rotation, "ghost").grid(
-            row=0, column=1, sticky="ew", padx=(3, 0), pady=3)
+            row=0, column=1, sticky="ew", padx=dpi.Spair((3, 0)), pady=dpi.S(3))
         _btn(grid, "删除此技能轴", self.delete_axis, "danger").grid(
-            row=1, column=0, sticky="ew", padx=(0, 3), pady=3)
+            row=1, column=0, sticky="ew", padx=dpi.Spair((0, 3)), pady=dpi.S(3))
         _btn(grid, "删除编队", self.delete_rotation, "danger").grid(
-            row=1, column=1, sticky="ew", padx=(3, 0), pady=3)
+            row=1, column=1, sticky="ew", padx=dpi.Spair((3, 0)), pady=dpi.S(3))
 
     # ---------- 中间 ----------
     def _build_center(self):
         c = self.center
 
-        team_wrap = tk.Frame(c, bg=theme.PANEL, padx=14, pady=12)
+        team_wrap = tk.Frame(c, bg=theme.PANEL, padx=dpi.S(14), pady=dpi.S(12))
         team_wrap.pack(fill="x")
-        _section(team_wrap, "队伍", "单击选中 · 双击更换").pack(fill="x")
-        self.team_canvas = tk.Canvas(team_wrap, bg=theme.PANEL, highlightthickness=0,
+        _section(team_wrap, "队伍",
+                 "单击选中 · 双击更换 · 拖动换位（位置决定按键 1~4）").pack(fill="x")
+        self.team_canvas = ScaledCanvas(team_wrap, bg=theme.PANEL, highlightthickness=0,
                                      bd=0, height=TEAM_CARD_H + 8)
-        self.team_canvas.pack(fill="x", pady=(8, 0))
+        self.team_canvas.pack(fill="x", pady=dpi.Spair((8, 0)))
 
-        skill_wrap = tk.Frame(c, bg=theme.PANEL, padx=14, pady=12)
-        skill_wrap.pack(fill="x", pady=(10, 0))
+        skill_wrap = tk.Frame(c, bg=theme.PANEL, padx=dpi.S(14), pady=dpi.S(12))
+        skill_wrap.pack(fill="x", pady=dpi.Spair((10, 0)))
         _section(skill_wrap, "技能", "拖到下方技能轴，或点一下加到末尾").pack(fill="x")
-        self.skill_canvas = tk.Canvas(skill_wrap, bg=theme.PANEL, highlightthickness=0,
+        self.skill_canvas = ScaledCanvas(skill_wrap, bg=theme.PANEL, highlightthickness=0,
                                       bd=0, height=SKILL_CARD_H + 8)
-        self.skill_canvas.pack(fill="x", pady=(8, 0))
+        self.skill_canvas.pack(fill="x", pady=dpi.Spair((8, 0)))
 
         tl_wrap = tk.Frame(c, bg=theme.BG)
-        tl_wrap.pack(fill="both", expand=True, pady=(10, 0))
+        tl_wrap.pack(fill="both", expand=True, pady=dpi.Spair((10, 0)))
         head = tk.Frame(tl_wrap, bg=theme.BG)
         head.pack(fill="x")
         self.tl_title = tk.Label(head, text="技能轴", bg=theme.BG, fg=theme.TEXT,
                                  font=theme.font(theme.F_SECTION, True))
         self.tl_title.pack(side="left")
         tk.Label(head, text="拖动节点改顺序 · 拖出删除", bg=theme.BG,
-                 fg=theme.TEXT_MUTED, font=theme.font(theme.F_TINY)).pack(side="left",
-                                                                        padx=10)
-        _btn(head, "复制节点", self.duplicate_node, "ghost").pack(side="right", padx=3)
-        _btn(head, "删除节点", self.delete_node, "danger").pack(side="right", padx=3)
+                 fg=theme.TEXT_MUTED, font=theme.font(theme.F_TINY)).pack(
+            side="left", padx=dpi.S(10))
+        _btn(head, "复制节点", self.duplicate_node, "ghost").pack(
+            side="right", padx=dpi.S(3))
+        _btn(head, "删除节点", self.delete_node, "danger").pack(
+            side="right", padx=dpi.S(3))
 
-        self.timeline = tk.Canvas(tl_wrap, bg=theme.BG_2, highlightthickness=0, bd=0,
+        self.timeline = ScaledCanvas(tl_wrap, bg=theme.BG_2, highlightthickness=0, bd=0,
                                   height=NODE_H + 40)
-        self.timeline.pack(fill="both", expand=True, pady=(6, 0))
+        self.timeline.pack(fill="both", expand=True, pady=dpi.Spair((6, 0)))
         self.timeline.bind("<Button-1>", lambda e: self._select_node(None))
 
     # ================= 刷新 =================
@@ -294,12 +303,11 @@ class Editor:
 
         rot_now = self.current_rotation()
         active_id = rot_now.id if rot_now else ""
-        f = theme.font(theme.F_SMALL)
         max_x = LEFT_W - 4
         x, y = 0, 2
         for rot in rots:
             label = truncate(rot.name, 12)
-            w = max(56, min(f.measure(label) + 24, max_x))
+            w = max(56, min(fonts.measure(label, theme.F_SMALL) + 24, max_x))
             if x > 0 and x + w > max_x:
                 x, y = 0, y + ROT_CHIP_H + ROT_CHIP_GAP
             active = rot.id == active_id
@@ -526,7 +534,7 @@ class Editor:
         badge = "爆发轴" if is_burst else "充能轴 %d/%d" % (
             charge_ids.index(axis.id) + 1 if axis.id in charge_ids else idx + 1,
             len(charge_ids))
-        bw = theme.font(theme.F_TINY, True).measure(badge) + 18
+        bw = fonts.measure(badge, theme.F_TINY, True) + 18
         bx = LEFT_W - 14 - bw
         rounded_rect(cv, bx, y + 11, bx + bw, y + 31, r=5,
                      fill=theme.PANEL_4, outline=color, tags=(tag,))
@@ -668,21 +676,71 @@ class Editor:
                                fill=theme.TEXT_MUTED,
                                font=theme.font(theme.F_TINY), tags=(tag,))
             cv.tag_bind(tag, "<Button-1>",
-                        lambda e, idx=i: self._on_slot_select(idx))
+                        lambda e, idx=i: self._on_slot_press(idx))
             cv.tag_bind(tag, "<Double-Button-1>",
                         lambda e, idx=i: self._on_slot_change(idx))
             x += TEAM_CARD_W + 10
 
-    def _on_slot_select(self, idx):
-        cn = self.current_team().normalized()[idx]
+    def _on_slot_press(self, idx):
+        """点一下选中；按住拖动则等松手时换位置（位置 = 按键 1~4）。"""
+        members = self.current_team().normalized()
+        cn = members[idx]
         if not cn:
             self._on_slot_change(idx)
             return
-        self.selected_member = cn
+        if cn != self.selected_member:
+            self.selected_member = cn
+            self.refresh_team()
+            self.refresh_skills()
+        self._begin_drag({"type": "member", "index": idx}, cn)
+
+    def _member_drop_index(self, e):
+        """鼠标位置 -> 队伍插入下标（0..4）。"""
+        pos = self._in_canvas(self.team_canvas, e)
+        if pos is None:
+            return None
+        x, _y = pos
+        for i in range(4):
+            cx = 2 + i * (TEAM_CARD_W + 10) + TEAM_CARD_W / 2.0
+            if x < cx:
+                return i
+        return 4
+
+    def _draw_member_indicator(self, idx):
+        cv = self.team_canvas
+        cv.delete("drop_ind")
+        if idx is None:
+            return
+        x = 2 + idx * (TEAM_CARD_W + 10) - 5
+        cv.create_line(x, 10, x, 6 + TEAM_CARD_H, fill=theme.ACCENT, width=3,
+                       tags=("drop_ind",))
+
+    def _move_member(self, src, dst):
+        """把第 src 位干员拖到 dst 之前（下标按移前算）。"""
+        if dst is None:
+            return False
+        ms = self.current_team().normalized()
+        if not (0 <= src < len(ms)) or not ms[src]:
+            return False
+        name = ms.pop(src)
+        if dst > src:
+            dst -= 1
+        dst = max(0, min(int(dst), len(ms)))
+        if dst == src:
+            ms.insert(src, name)
+            return False
+        ms.insert(dst, name)
+        self.set_current_team(ms[:4])
         self.refresh_team()
         self.refresh_skills()
+        self.refresh_roster()
+        self.refresh_order()
+        self.refresh_timeline()
+        self.app.rebuild_player()
+        return True
 
     def _on_slot_change(self, idx):
+        self._end_drag()
         members = self.current_team().normalized()
         used = [m for j, m in enumerate(members) if m and j != idx]
 
@@ -879,10 +937,11 @@ class Editor:
             ghost.attributes("-topmost", True)
             ghost.configure(bg=theme.ACCENT)
             tk.Label(ghost, text=label, bg=theme.PANEL_3, fg=theme.TEXT,
-                     font=theme.font(theme.F_SMALL), padx=10, pady=6).pack(padx=2,
-                                                                         pady=2)
-            ghost.geometry("+%d+%d" % (self.root.winfo_pointerx() + 12,
-                                       self.root.winfo_pointery() + 8))
+                     font=theme.font(theme.F_SMALL),
+                     padx=dpi.S(10), pady=dpi.S(6)).pack(padx=dpi.S(2),
+                                                         pady=dpi.S(2))
+            ghost.geometry("+%d+%d" % (self.root.winfo_pointerx() + dpi.S(12),
+                                       self.root.winfo_pointery() + dpi.S(8)))
             self._ghost = ghost
         except tk.TclError:
             self._ghost = None
@@ -895,7 +954,8 @@ class Editor:
         self._drag["moved"] = True
         if self._ghost is not None:
             try:
-                self._ghost.geometry("+%d+%d" % (e.x_root + 12, e.y_root + 8))
+                self._ghost.geometry("+%d+%d" % (e.x_root + dpi.S(12),
+                                          e.y_root + dpi.S(8)))
             except tk.TclError:
                 self._ghost = None
         if self._drag.get("type") == "reorder":
@@ -904,6 +964,9 @@ class Editor:
         elif self._drag.get("type") == "rot":
             self._pending_drop = self._rot_drop_index(e)
             self._draw_rot_indicator(self._pending_drop)
+        elif self._drag.get("type") == "member":
+            self._pending_drop = self._member_drop_index(e)
+            self._draw_member_indicator(self._pending_drop)
         else:
             self._pending_drop = self._timeline_drop_index(e)
             self._draw_drop_indicator(self._pending_drop)
@@ -914,7 +977,7 @@ class Editor:
             rw, rh = cv.winfo_width(), cv.winfo_height()
         except tk.TclError:
             return None
-        x, y = e.x_root - rx, e.y_root - ry
+        x, y = dpi.unS(e.x_root - rx), dpi.unS(e.y_root - ry)
         if 0 <= x <= rw and 0 <= y <= rh:
             return x, y
         return None
@@ -975,6 +1038,12 @@ class Editor:
             self._reorder_rotation(drag["rotation"], idx)
             return
 
+        if drag.get("type") == "member":
+            if not moved or idx is None:
+                return
+            self._move_member(drag["index"], idx)
+            return
+
         if not moved:
             if drag.get("type") == "new":
                 self.add_node(self.selected_member, drag["kind"])
@@ -1004,7 +1073,8 @@ class Editor:
             self.root.unbind_all("<ButtonRelease-1>")
         except tk.TclError:
             pass
-        for cv in (self.timeline, self.order_canvas, self.rot_canvas):
+        for cv in (self.timeline, self.order_canvas, self.rot_canvas,
+                   self.team_canvas):
             try:
                 cv.delete("drop_ind")
             except tk.TclError:

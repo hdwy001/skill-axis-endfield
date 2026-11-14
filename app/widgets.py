@@ -34,9 +34,17 @@ def truncate(text, limit):
 
 
 def center_window(win, parent=None, width=None, height=None):
-    """把窗口放到父窗口正中（没有父窗口就放屏幕正中），并夹在屏幕内。"""
+    """把窗口放到父窗口正中（没有父窗口就放屏幕正中），并夹在屏幕内。
+
+    width / height 用**逻辑像素**传，内部按 DPI 换成物理像素。
+    """
+    from . import dpi
     try:
         win.update_idletasks()
+        if width is not None:
+            width = dpi.S(width)
+        if height is not None:
+            height = dpi.S(height)
         if width is None:
             width = max(win.winfo_reqwidth(), 200)
         if height is None:

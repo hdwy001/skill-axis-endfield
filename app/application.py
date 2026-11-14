@@ -6,7 +6,7 @@ import queue
 import time
 import tkinter as tk
 
-from . import fonts, paths, theme
+from . import dpi, fonts, paths, theme
 from .editor import Editor
 from .gamepad import GamepadListener, button_name
 from .icons import IconStore
@@ -28,11 +28,19 @@ except Exception:  # pragma: no cover
 
 class Application:
     def __init__(self):
+        # 开窗前先声明 DPI 感知，否则 Windows 会把整窗位图放大（字糊）
+        dpi.enable()
         self.root = tk.Tk()
+        # 字体用点（pt）为单位，这里把「pt -> 像素」的比例调成跟 DPI 一致，
+        # 这样字号自动跟随缩放，不用逐处改字号。
+        try:
+            self.root.tk.call("tk", "scaling", dpi.factor() * 96.0 / 72.0)
+        except tk.TclError:
+            pass
         fonts.setup()
         self.root.title("技能轴提示器 · 明日方舟：终末地")
-        self.root.geometry("1320x880")
-        self.root.minsize(1180, 780)
+        self.root.geometry("%dx%d" % (dpi.S(1320), dpi.S(880)))
+        self.root.minsize(dpi.S(1180), dpi.S(780))
         self.root.configure(bg=theme.BG)
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 

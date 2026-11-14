@@ -2,7 +2,7 @@
 """通用文本输入弹窗：居中显示，返回输入内容。"""
 import tkinter as tk
 
-from . import theme
+from . import dpi, theme
 from .widgets import center_window
 
 
@@ -16,7 +16,7 @@ class TextDialog:
         self.win.resizable(False, False)
         self.win.grab_set()
 
-        box = tk.Frame(self.win, bg=theme.BG, padx=22, pady=18)
+        box = tk.Frame(self.win, bg=theme.BG, padx=dpi.S(22), pady=dpi.S(18))
         box.pack(fill="both", expand=True)
 
         tk.Label(box, text=label, bg=theme.BG, fg=theme.TEXT_DIM,
@@ -28,7 +28,7 @@ class TextDialog:
                        selectbackground=theme.ACCENT, selectforeground="#221a06",
                        highlightthickness=1, highlightbackground=theme.BORDER,
                        highlightcolor=theme.ACCENT, font=theme.font(theme.F_BODY))
-        ent.pack(fill="x", pady=(6, 14), ipady=5)
+        ent.pack(fill="x", pady=dpi.Spair((6, 14)), ipady=dpi.S(5))
         ent.icursor("end")
         ent.select_range(0, "end")
         ent.focus_set()
@@ -40,13 +40,13 @@ class TextDialog:
                   activeforeground="#221a06", relief="flat", bd=0,
                   highlightthickness=0, cursor="hand2",
                   font=theme.font(theme.F_BODY, True),
-                  padx=18, pady=5).pack(side="right")
+                  padx=dpi.S(18), pady=dpi.S(5)).pack(side="right")
         tk.Button(bar, text="取消", command=self._cancel, bg=theme.PANEL_2,
                   fg=theme.TEXT_DIM, activebackground=theme.PANEL_3,
                   activeforeground=theme.TEXT, relief="flat", bd=0,
                   highlightthickness=0, cursor="hand2",
-                  font=theme.font(theme.F_SMALL), padx=14, pady=5).pack(side="right",
-                                                                     padx=8)
+                  font=theme.font(theme.F_SMALL), padx=dpi.S(14), pady=dpi.S(5)).pack(side="right",
+                                                                     padx=dpi.S(8))
 
         ent.bind("<Return>", lambda e: self._ok())
         self.win.bind("<Escape>", lambda e: self._cancel())
