@@ -9,6 +9,7 @@
 
 MATCH = "match"
 WRONG = "wrong"
+JUMP = "jump"          # 容错：按到后面的技能，已自动跳过去
 IGNORED = "ignored"
 FINISHED = "finished"
 
@@ -155,20 +156,39 @@ class Player:
         if node is None:
             return FINISHED, None
 
-        any_key = getattr(self.settings, "mode", "strict") == "any"
+        s = self.settings
+        any_key = getattr(s, "mode", "strict") == "any"
         if any_key or self._matches(node, vk, button, hold):
             self.done.add(self.index)
             self._advance()
             return MATCH, node
 
-        # 按到了本段后面节点的键
+        forgive = bool(getattr(s, "forgive_hold", False))
+        auto = bool(getattr(s, "auto_skip", False))
+
+        # 容错一：技能节点被长按（手抖按住超过阈值）——按同一颗键，照样算这个技能
+        if forgive and hold and node.kind == KIND_SKILL:
+            if self._matches(node, vk, button, False):
+                self.done.add(self.index)
+                self._advance()
+                return MATCH, node
+
+        # 容错二：按到了本段后面节点的键
         axis = self.current_axis()
-        for i in range(self.index + 1, len(axis.nodes)):
+        old_index = self.index
+        for i in range(old_index + 1, len(axis.nodes)):
             n = axis.nodes[i]
-            if self._matches(n, vk, button, hold):
+            ok = self._matches(n, vk, button, hold)
+            if not ok and forgive and hold and n.kind == KIND_SKILL:
+                ok = self._matches(n, vk, button, False)
+            if ok:
+                if auto:
+                    skipped = i - old_index
+                    self._skip_to(i)
+                    return JUMP, (n, skipped)
                 return WRONG, (node, n, i)
 
-        # 也检查后面几段：按到「更后面的轴」的键同样算顺序错
+        # 也检查后面几段：按到「更后面的轴」的键同样算顺序错（不自动跳，容易乱）
         for seg in self._segments[self.segment + 1:]:
             for i, n in enumerate(seg.axis.nodes):
                 if self._matches(n, vk, button, hold):
@@ -230,6 +250,28 @@ class Player:
         self.done.add(self.index)
         self._advance()
         return True
+
+    def _skip_to(self, index):
+        """把当前段推进到第 index 个节点之后（含它），容错跳转用。"""
+        seg = self.segment
+        guard = 0
+        while self.segment == seg and self.index <= index and guard < 512:
+            self.done.add(self.index)
+            self._advance()
+            guard += 1
+
+    def restart(self):
+        """回到第一段第一个技能，并保持原来的运行/暂停状态（「重置」用）。"""
+        state = self.state
+        self.reset()
+        has_nodes = any(seg.axis.nodes for seg in self._segments)
+        if not has_nodes:
+            return self.state
+        if state == "running":
+            self.state = "running"
+        elif state == "paused":
+            self.state = "paused"
+        return self.state
 
     def _advance(self):
         axis = self.current_axis()

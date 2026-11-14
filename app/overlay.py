@@ -58,6 +58,8 @@ class Overlay:
         self._pulse_on = False
         self._hint = ""
         self._hint_until = 0
+        self._flash_until = 0.0
+        self._flash_ok = True
         self._drag = None
         self._resize = None
         self._opacity_drag = False
@@ -213,6 +215,22 @@ class Overlay:
         self._hint_until = time.time() + 2.0
         self.redraw()
 
+    def flash(self, ok=False):
+        """当前技能闪一下描边：对 = 绿，错 = 红。"""
+        self._flash_ok = bool(ok)
+        self._flash_until = time.time() + 0.75
+        self._safe_redraw()
+        for d in (90, 190, 300):
+            try:
+                self.win.after(d, self._safe_redraw)
+            except tk.TclError:
+                break
+
+    def _flash_color(self):
+        if time.time() < self._flash_until:
+            return theme.OK if self._flash_ok else theme.BAD
+        return ""
+
     def _tick(self):
         self._pulse_on = not self._pulse_on
         try:
@@ -249,7 +267,9 @@ class Overlay:
         if not nodes:
             return "这条技能轴还没有技能"
         if p.state in ("idle",):
-            return "按 F7 开始提示（当前未启动）"
+            return "按 F7 开始提示 · F8 重置（当前未启动）"
+        if p.state == "paused":
+            return "已暂停 · F7 继续 · F8 重置"
         team = self.team_members()
         missing = []
         for n in nodes:
@@ -301,12 +321,28 @@ class Overlay:
         except tk.TclError:
             pass
 
+    def _btn_pos(self):
+        """顶栏右上角两个圆钮的位置：(关闭 x, 重置 x, y, 半径)。"""
+        s = self._sc
+        head = max(18, int(round(B_HEADER * s)))
+        ymid = head / 2.0
+        ccx = self._W - 22 * s
+        rcx = ccx - 30 * s
+        return ccx, rcx, ymid, 11 * s
+
     def _in_close(self, x, y):
         s = self._sc
         m = max(4, int(round(4 * s)))
-        cx, cy = self._W - int(round(22 * s)), int(round(16 * s))
-        r = int(round(11 * s)) + m
-        return (cx - r) <= x <= (cx + r) and (cy - r) <= y <= (cy + r)
+        cx, _rcx, cy, r = self._btn_pos()
+        rr = r + m
+        return (cx - rr) <= x <= (cx + rr) and (cy - rr) <= y <= (cy + rr)
+
+    def _in_reset(self, x, y):
+        s = self._sc
+        m = max(4, int(round(4 * s)))
+        _ccx, cx, cy, r = self._btn_pos()
+        rr = r + m
+        return (cx - rr) <= x <= (cx + rr) and (cy - rr) <= y <= (cy + rr)
 
     # ---------- 交互 ----------
     def _slider_rect(self):
@@ -316,9 +352,9 @@ class Overlay:
         head = max(18, int(round(B_HEADER * s)))
         ymid = head / 2.0
         cr = 11 * s
-        ccx = W - 22 * s
+        _ccx, rcx, _ymid, _r = self._btn_pos()
         sl_w = 62 * s
-        sl_x2 = ccx - cr - 26 * s
+        sl_x2 = rcx - cr - 26 * s
         sl_x1 = sl_x2 - sl_w
         h = max(8, 9 * s)
         return sl_x1 - 2, sl_x2 + 2, ymid - h, ymid + h
@@ -340,6 +376,9 @@ class Overlay:
             return
         if self._in_close(e.x, e.y):
             self.app.hide_overlay()
+            return
+        if self._in_reset(e.x, e.y):
+            self.app.reset_player()
             return
         if self._in_slider(e.x, e.y):
             self._opacity_drag = True
@@ -514,19 +553,24 @@ class Overlay:
         name = rot.name if rot else "未选择编队"
         ymid = head / 2.0
 
-        # 关闭
+        # 右上角：重置 + 关闭（重置图标自己画，MiSans 里没有 ↻ 字形）
         cr = 11 * s
-        ccx, ccy = W - 22 * s, ymid
-        d.ellipse([self._S(ccx - cr), self._S(ccy - cr),
-                   self._S(ccx + cr), self._S(ccy + cr)],
-                  fill=_rgba(theme.PANEL_2, self._a),
-                  outline=_rgba(theme.BORDER, self._a), width=max(1, self._S(1)))
+        ccx, rcx, ccy, _r = self._btn_pos()
+        for bx in (rcx, ccx):
+            d.ellipse([self._S(bx - cr), self._S(ccy - cr),
+                       self._S(bx + cr), self._S(ccy + cr)],
+                      fill=_rgba(theme.PANEL_2, self._a),
+                      outline=_rgba(theme.BORDER, self._a),
+                      width=max(1, self._S(1)))
         self._text(d, ccx, ccy, "×", theme.F_TINY, theme.TEXT, anchor="mm",
                    bold=True)
+        # 重置图标用「重」字（MiSans 里没有 ↻ 字形，画弧又容易糊）
+        self._text(d, rcx, ccy, "重", theme.F_TINY, theme.TEXT_DIM,
+                   anchor="mm", bold=True)
 
-        # 右侧：透明度
+        # 右侧：透明度（右边界让出「重置」圆钮）
         sl_w = 62 * s
-        sl_x2 = ccx - cr - 26 * s
+        sl_x2 = rcx - cr - 26 * s
         sl_x1 = sl_x2 - sl_w
         self._text(d, sl_x1 - 6 * s, ymid, "透明度", theme.F_TINY,
                    theme.TEXT_MUTED, anchor="rm")
@@ -607,6 +651,13 @@ class Overlay:
 
             if cur:
                 k = 5 * self._sc
+                flash = self._flash_color()
+                if flash:
+                    k2 = k + 3 * self._sc
+                    self._shape(d, (cx - ic / 2 - k2, icon_cy - ic / 2 - k2,
+                                    cx + ic / 2 + k2, icon_cy + ic / 2 + k2),
+                                r=10 * self._sc, fill=None, outline=flash,
+                                width=max(3, int(round(3 * self._sc))))
                 self._shape(d, (cx - ic / 2 - k, icon_cy - ic / 2 - k,
                                 cx + ic / 2 + k, icon_cy + ic / 2 + k),
                             r=8 * self._sc, fill=None, outline=theme.ACCENT,

@@ -238,6 +238,10 @@ class Settings:
     pad_ult_mode: str = DEFAULT_PAD_ULT_MODE
     pad_ult_modifier: int = DEFAULT_PAD_ULT_MODIFIER   # alt 方式下的终结键（默认 RB）
 
+    # 错按容错
+    forgive_hold: bool = True    # 技能节点被长按（手抖按住超时）也照样算技能
+    auto_skip: bool = True       # 按到本段后面的技能就跳过去，而不是卡在原地
+
     def pad_slot_key(self, slot):
         """队伍第 slot 位对应的手柄按键位。"""
         try:
@@ -288,6 +292,8 @@ class Settings:
         if s.pad_ult_mode not in PAD_ULT_MODES:
             s.pad_ult_mode = DEFAULT_PAD_ULT_MODE
         s.pad_ult_modifier = int(s.pad_ult_modifier or DEFAULT_PAD_ULT_MODIFIER)
+        s.forgive_hold = bool(s.forgive_hold)
+        s.auto_skip = bool(s.auto_skip)
         s.hold_ms = max(60, int(s.hold_ms or DEFAULT_HOLD_MS))
         s.combo_key = int(s.combo_key or DEFAULT_COMBO_KEY)
         return s

@@ -15,7 +15,7 @@ from .listener import KeyListener
 from .model import Store
 from .overlay import Overlay
 from .padrouter import PadRouter
-from .player import FINISHED, IGNORED, MATCH, WRONG, Player
+from .player import FINISHED, IGNORED, JUMP, MATCH, WRONG, Player
 from .testpanel import TestPanel
 
 user32 = ctypes.WinDLL("user32", use_last_error=True)
@@ -196,7 +196,7 @@ class Application:
         if self.settings.only_game_focus and not self._game_in_focus():
             return
         result, info = self.player.press(vk=vk, hold=hold)
-        self._after_press(result, info)
+        self._after_press(result, info, vk=vk)
 
     def _handle_event(self, ev):
         from .model import SLOT_VKS
@@ -245,8 +245,7 @@ class Application:
             self.toggle_through()
             return
         if ev.vk == s.hotkey_reset:
-            self.player.reset()
-            self.refresh_overlay()
+            self.reset_player()
             return
         if ev.vk == s.hotkey_start:
             self.toggle_player()
@@ -266,21 +265,71 @@ class Application:
         if s.only_game_focus and not self._game_in_focus():
             return
         result, info = self.player.press(vk=ev.vk, hold=hold)
-        self._after_press(result, info)
+        self._after_press(result, info, vk=ev.vk)
 
-    def _after_press(self, result, info):
+    # ---------- 按键反馈 ----------
+    def _node_name(self, node):
+        if node is None:
+            return "当前技能"
+        who = (node.operator or "").strip()
+        return ("%s %s" % (who, node.label)).strip() if who else node.label
+
+    def _bound_keys(self):
+        """当前真正绑定了技能的键盘键码（数字 1~4 + 连携键）。"""
+        s = self.settings
+        keys = set()
+        if s.combo_key:
+            keys.add(int(s.combo_key))
+        for i in range(4):
+            k = s.slot_key(i)
+            if k:
+                keys.add(int(k))
+        return keys
+
+    def _after_press(self, result, info, vk=None):
         if result == MATCH:
             self.refresh_overlay()
             if self.player.state == "finished":
                 self._beep(880, 160)
-        elif result == WRONG:
-            cur = info[0]
+        elif result == JUMP:
+            # 容错：已跳到所按的那个技能
+            target, skipped = info
             self.refresh_overlay()
-            self.overlay_show_hint("顺序不对：现在应放「%s」" % (cur.skill or "当前技能"))
-        elif result == FINISHED:
-            pass
+            self.overlay_flash(ok=True)
+            cur = self.player.current()
+            if cur is not None:
+                self.overlay_show_hint("已跳过 %d 个（按了「%s」），现在应放「%s」"
+                                       % (skipped, self._node_name(target),
+                                          self._node_name(cur)))
+            else:
+                self.overlay_show_hint("已跳到「%s」" % self._node_name(target))
+        elif result == WRONG:
+            cur = info[0] if info else self.player.current()
+            self.refresh_overlay()
+            self.overlay_flash(ok=False)
+            self.overlay_show_hint("顺序不对：现在应放「%s」" % self._node_name(cur))
+        elif result == IGNORED:
+            # 按的是绑定键但当前不该按（或超出了这条轴）—— 给个反馈，别毫无反应
+            if vk is None or int(vk) not in self._bound_keys():
+                return
+            cur = self.player.current()
+            if cur is None:
+                return
+            self.overlay_flash(ok=False)
+            self.overlay_show_hint("这一下对不上：当前应放「%s」" % self._node_name(cur))
 
     # ================= 播放 =================
+    def reset_player(self, hint=True):
+        """重置播放进度到第一条技能（保持原来的运行/暂停状态）。"""
+        state = self.player.restart()
+        self.refresh_overlay()
+        if hint:
+            if state == "idle":
+                self.overlay_show_hint("已重置到第一条技能（按 F7 开始）")
+            else:
+                self.overlay_show_hint("已重置到第一条技能")
+        return state
+
     def rebuild_player(self):
         rot = self.store.active_rotation()
         self.player.set_rotation(rot)
@@ -334,6 +383,14 @@ class Application:
     def overlay_show_hint(self, text):
         if self.is_overlay_visible():
             self.overlay.show_hint(text)
+
+    def overlay_flash(self, ok=False):
+        """当前技能闪一下：对/错都让玩家看得见。"""
+        if self.is_overlay_visible():
+            try:
+                self.overlay.flash(ok)
+            except Exception:
+                pass
 
     def set_overlay_opacity(self, value, persist=True):
         """设置悬浮窗底色的不透明度（只影响背景层，文字不淡）。"""

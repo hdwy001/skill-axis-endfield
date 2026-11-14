@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.model import (Axis, KIND_COMBO, KIND_SKILL, KIND_ULT,  # noqa: E402
                        Node, ROLE_BURST, ROLE_CHARGE, Rotation, Settings,
                        Store, Team)
-from app.player import FINISHED, MATCH, WRONG, Player  # noqa: E402
+from app.player import FINISHED, JUMP, MATCH, WRONG, Player  # noqa: E402
 from app.padrouter import PadRouter  # noqa: E402
 
 def _base():
@@ -103,6 +103,7 @@ def test_slot_mapping():
     """数字键按队伍顺序绑定。"""
     p, rot, axes, s = mk_player(charge_kinds=((KIND_SKILL, KIND_SKILL),),
                                 team=("佩丽卡", "管理员"))
+    s.auto_skip = False      # 这条只测严格模式
     p.start()
     n0 = p.current()
     slot0 = p.store.team.normalized().index(n0.operator)
@@ -135,11 +136,99 @@ def test_ult_requires_hold():
     check("长按触发终结技", r2 == MATCH)
 
 
+def test_tolerance_defaults():
+    """容错默认开着，设置能持久化。"""
+    s = Settings()
+    check("默认长短按容错开着", s.forgive_hold is True)
+    check("默认按错自动跳开着", s.auto_skip is True)
+    s2 = Settings.from_dict({"forgive_hold": False, "auto_skip": False})
+    check("容错开关可持久化",
+          s2.forgive_hold is False and s2.auto_skip is False)
+    s3 = Settings.from_dict({"forgive_hold": 0, "auto_skip": 0})
+    check("容错开关存成 0 也是关", s3.forgive_hold is False and s3.auto_skip is False)
+
+
 def test_hold_threshold_setting():
     s = Settings()
     check("默认长按阈值 280ms", s.hold_ms == 280)
     s2 = Settings.from_dict({"hold_ms": 500})
     check("阈值可持久化", s2.hold_ms == 500)
+
+
+def test_forgive_hold():
+    """容错：技能节点被长按（手抖按住超时）也算技能。"""
+    p, rot, axes, s = mk_player(charge_kinds=((KIND_SKILL, KIND_COMBO),),
+                                team=("佩丽卡", "管理员"))
+    p.start()
+    slot = p.store.team.normalized().index(p.current().operator)
+    digit = s.slot_key(slot)
+
+    s.forgive_hold = False
+    r, _ = p.press(vk=digit, hold=True)
+    check("关掉容错：长按技能键不算进", r != MATCH)
+
+    s.forgive_hold = True
+    r, _ = p.press(vk=digit, hold=True)
+    check("开着容错：长按技能键也算进", r == MATCH)
+
+    # 终结技仍然必须长按，容错不能让它被短按推进
+    p2, _r2, _a2, s2 = mk_player(charge_kinds=((KIND_ULT,),), team=("佩丽卡",))
+    p2.start()
+    slot2 = p2.store.team.normalized().index(p2.current().operator)
+    r2, _ = p2.press(vk=s2.slot_key(slot2), hold=False)
+    check("容错不影响终结技的长按要求", r2 != MATCH)
+
+
+def test_auto_skip():
+    """容错：按到本段后面的技能，自动跳过去。"""
+    p, rot, axes, s = mk_player(charge_kinds=((KIND_SKILL, KIND_SKILL, KIND_COMBO),),
+                                team=("佩丽卡", "管理员", "陈千语"))
+    p.start()
+    team = p.store.team.normalized()
+    # 当前应放第 1 个（佩丽卡 技能），故意按第 2 个（管理员 技能）
+    slot2 = team.index(axes[0].nodes[1].operator)
+    digit2 = s.slot_key(slot2)
+
+    s.auto_skip = False
+    r, info = p.press(vk=digit2, hold=False)
+    check("关掉自动跳：按后面的键 = 顺序错", r == WRONG)
+    check("顺序错会告诉你是哪颗节点", info[1] is axes[0].nodes[1])
+    check("关掉自动跳不会推进进度", p.index == 0)
+
+    s.auto_skip = True
+    r2, info2 = p.press(vk=digit2, hold=False)
+    check("开着自动跳：按后面的键 = 已跳过去", r2 == JUMP)
+    check("跳过后跳过数量对", info2[1] == 1)
+    check("跳过后指针落在那个节点之后", p.index == 2)
+    check("跳过的节点都算已放", {0, 1} <= p.done)
+
+    # 跳到最后一个节点：应该直接进下一段
+    p3, _r3, axes3, s3 = mk_player(charge_kinds=((KIND_SKILL, KIND_COMBO),),
+                                   team=("佩丽卡", "管理员"))
+    p3.start()
+    team3 = p3.store.team.normalized()
+    combo = s3.combo_key
+    r3, _ = p3.press(vk=combo, hold=False)
+    check("跳到段尾会进下一段", r3 == JUMP and p3.segment == 1 and p3.index == 0)
+
+
+def test_restart_keeps_running():
+    """重置：回到第一条技能，且保持运行状态（不是变回未启动）。"""
+    p, rot, axes, s = mk_player(charge_kinds=((KIND_SKILL, KIND_SKILL),),
+                                team=("佩丽卡", "管理员"))
+    p.start()
+    p.press(vk=s.slot_key(0), hold=False)
+    check("先放掉一个", p.index == 1)
+    state = p.restart()
+    check("重置后回到第一个节点", p.index == 0 and p.segment == 0)
+    check("重置后仍在运行", state == "running" and p.state == "running")
+
+    p.pause()
+    state2 = p.restart()
+    check("暂停中重置仍保持暂停", state2 == "paused" and p.state == "paused")
+
+    p4, _r4, _a4, _s4 = mk_player()
+    check("未启动时重置仍是未启动", p4.restart() == "idle")
 
 
 def test_hotdata_dirty_flow():
@@ -244,6 +333,8 @@ def test_infinite():
 
 def test_wrong_key():
     p, rot, axes, s = mk_player()
+    s.auto_skip = False      # 这条只测严格模式
+    s.forgive_hold = False
     p.start()
     n = p.current()
     slot = p.store.team.normalized().index(n.operator)
@@ -570,6 +661,8 @@ def main():
                test_combo_key, test_ult_requires_hold, test_hold_threshold_setting,
                test_infinite, test_wrong_key, test_key_map, test_any_mode,
                test_gamepad, test_skip, test_empty_segment_skipped,
+               test_tolerance_defaults, test_forgive_hold, test_auto_skip,
+               test_restart_keeps_running,
                test_pad_ult_hold_mode, test_pad_ult_alt_mode,
                test_pad_ult_modifier_separate, test_ult_mode_setting,
                test_move_rotation,

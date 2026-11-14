@@ -115,6 +115,8 @@ class Editor:
 
         _btn(right, "打开悬浮窗", self.app.show_overlay, "primary").pack(
             side="left", padx=dpi.S(4))
+        _btn(right, "重置进度", self.app.reset_player, "ghost").pack(
+            side="left", padx=dpi.S(4))
         _btn(right, "按键测试", self.app.open_test_panel, "ghost").pack(
             side="left", padx=dpi.S(4))
         _btn(right, "导入", self.do_import, "ghost").pack(

@@ -4,6 +4,7 @@ import tkinter as tk
 
 from . import dpi, theme
 from .gamepad import button_name
+from .keys import vk_label
 from .model import KIND_CN, KINDS
 from .widgets import center_window
 
@@ -21,7 +22,7 @@ class SettingsDialog:
         self.win.grab_set()
 
         self._build()
-        center_window(self.win, app.root, 520, 730)
+        center_window(self.win, app.root, 520, 810)
 
     # ---------- 界面 ----------
     def _build(self):
@@ -36,14 +37,18 @@ class SettingsDialog:
         # ---- 运行设置 ----
         box1, _sub1 = self._card(body, "运行设置")
         self.mode_var = tk.StringVar(value=self.s.mode)
+        self.mode_radios = []
         for val, label in (("strict", "必须按对键才推进"), ("any", "任意键推进")):
-            tk.Radiobutton(
+            rb = tk.Radiobutton(
                 box1, text=label, value=val, variable=self.mode_var,
                 command=self._on_mode, bg=theme.PANEL, fg=theme.TEXT_DIM,
-                selectcolor=theme.PANEL_2, activebackground=theme.PANEL,
+                selectcolor=theme.PANEL_3, activebackground=theme.PANEL,
                 activeforeground=theme.TEXT, relief="flat", bd=0,
                 highlightthickness=0, anchor="w",
-                font=theme.font(theme.F_BODY)).pack(fill="x", padx=dpi.S(8))
+                font=theme.font(theme.F_BODY))
+            rb.pack(fill="x", padx=dpi.S(8))
+            self.mode_radios.append((rb, val))
+        self._paint_radios(self.mode_radios, self.s.mode)
 
         self.focus_var = tk.BooleanVar(value=bool(self.s.only_game_focus))
         tk.Checkbutton(
@@ -62,6 +67,32 @@ class SettingsDialog:
             activeforeground=theme.TEXT, relief="flat", bd=0,
             highlightthickness=0, anchor="w",
             font=theme.font(theme.F_BODY)).pack(fill="x", padx=dpi.S(8))
+
+        # ---- 错按容错 ----
+        self.forgive_var = tk.BooleanVar(value=bool(getattr(self.s, "forgive_hold", True)))
+        tk.Checkbutton(
+            box1, text="长短按容错：技能键按住超时也算技能", variable=self.forgive_var,
+            command=self._on_forgive, bg=theme.PANEL, fg=theme.TEXT_DIM,
+            selectcolor=theme.PANEL_2, activebackground=theme.PANEL,
+            activeforeground=theme.TEXT, relief="flat", bd=0,
+            highlightthickness=0, anchor="w",
+            font=theme.font(theme.F_BODY)).pack(fill="x", padx=dpi.S(8))
+
+        self.skip_var = tk.BooleanVar(value=bool(getattr(self.s, "auto_skip", True)))
+        tk.Checkbutton(
+            box1, text="按错自动跳：按到后面的技能直接跟上", variable=self.skip_var,
+            command=self._on_skip, bg=theme.PANEL, fg=theme.TEXT_DIM,
+            selectcolor=theme.PANEL_2, activebackground=theme.PANEL,
+            activeforeground=theme.TEXT, relief="flat", bd=0,
+            highlightthickness=0, anchor="w",
+            font=theme.font(theme.F_BODY)).pack(fill="x", padx=dpi.S(8))
+
+        tk.Label(box1, text="快捷键：%s 开始/暂停 · %s 重置 · %s 显隐悬浮窗 · %s 点击穿透" % (
+            vk_label(self.s.hotkey_start), vk_label(self.s.hotkey_reset),
+            vk_label(self.s.hotkey_visible), vk_label(self.s.hotkey_through)),
+            bg=theme.PANEL, fg=theme.TEXT_MUTED, anchor="w", justify="left",
+            wraplength=dpi.S(440),
+            font=theme.font(theme.F_TINY)).pack(fill="x", padx=dpi.S(8), pady=dpi.Spair((2, 4)))
 
         # ---- 键位规则（只保留长按判定）----
         box2, _sub2 = self._card(body, "键位规则")
@@ -95,14 +126,18 @@ class SettingsDialog:
                  width=8, anchor="w",
                  font=theme.font(theme.F_SMALL)).pack(side="left")
         self.ult_mode_var = tk.StringVar(value=self.s.pad_ult_mode)
+        self.ult_radios = []
         for val, label in (("hold", "长按战技键"), ("alt", "终结键 + 按键")):
-            tk.Radiobutton(
+            rb = tk.Radiobutton(
                 row_ult, text=label, value=val, variable=self.ult_mode_var,
                 command=self._on_ult_mode, bg=theme.PANEL, fg=theme.TEXT_DIM,
-                selectcolor=theme.PANEL_2, activebackground=theme.PANEL,
+                selectcolor=theme.PANEL_3, activebackground=theme.PANEL,
                 activeforeground=theme.TEXT, relief="flat", bd=0,
                 highlightthickness=0,
-                font=theme.font(theme.F_SMALL)).pack(side="left", padx=dpi.Spair((0, 6)))
+                font=theme.font(theme.F_SMALL))
+            rb.pack(side="left", padx=dpi.Spair((0, 6)))
+            self.ult_radios.append((rb, val))
+        self._paint_radios(self.ult_radios, self.s.pad_ult_mode)
 
         def add_row(key, label, value):
             r = tk.Frame(box3, bg=theme.PANEL)
@@ -231,14 +266,32 @@ class SettingsDialog:
     def _on_ult_mode(self):
         self.s.pad_ult_mode = self.ult_mode_var.get()
         self.store.save_settings()
+        self._paint_radios(self.ult_radios, self.s.pad_ult_mode)
         self._sync_ult_row()
+
+    @staticmethod
+    def _paint_radios(radios, value):
+        for rb, val in radios:
+            try:
+                rb.configure(fg=theme.ACCENT if val == value else theme.TEXT_DIM)
+            except tk.TclError:
+                pass
 
     def _on_mode(self):
         self.s.mode = self.mode_var.get()
         self.store.save_settings()
+        self._paint_radios(self.mode_radios, self.s.mode)
 
     def _on_focus(self):
         self.s.only_game_focus = bool(self.focus_var.get())
+        self.store.save_settings()
+
+    def _on_forgive(self):
+        self.s.forgive_hold = bool(self.forgive_var.get())
+        self.store.save_settings()
+
+    def _on_skip(self):
+        self.s.auto_skip = bool(self.skip_var.get())
         self.store.save_settings()
 
     def _on_pad(self):
