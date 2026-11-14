@@ -2,6 +2,8 @@
 """设置对话框：运行设置 + 键位映射。"""
 import tkinter as tk
 
+from tkinter import messagebox
+
 from . import dpi, theme
 from .gamepad import button_name
 from .keys import vk_label
@@ -68,20 +70,26 @@ class SettingsDialog:
             highlightthickness=0, anchor="w",
             font=theme.font(theme.F_BODY)).pack(fill="x", padx=dpi.S(8))
 
-        # ---- 错按容错 ----
+        pad_row = tk.Frame(box1, bg=theme.PANEL)
+        pad_row.pack(fill="x", padx=dpi.S(26), pady=dpi.Spair((0, 2)))
+        self.pad_state = tk.Label(pad_row, text="", bg=theme.PANEL,
+                                  fg=theme.TEXT_MUTED, anchor="w",
+                                  font=theme.font(theme.F_TINY))
+        self.pad_state.pack(side="left", fill="x", expand=True)
+        tk.Button(pad_row, text="检测手柄", command=self._detect_pad,
+                  bg=theme.PANEL_2, fg=theme.TEXT,
+                  activebackground=theme.PANEL_3, activeforeground=theme.TEXT,
+                  relief="flat", bd=0, highlightthickness=0, cursor="hand2",
+                  font=theme.font(theme.F_TINY),
+                  padx=dpi.S(8), pady=dpi.S(1)).pack(side="right")
+        self._pad_job = None
+        self._poll_pad()
+
+        # ---- 输入容错 ----
         self.forgive_var = tk.BooleanVar(value=bool(getattr(self.s, "forgive_hold", True)))
         tk.Checkbutton(
-            box1, text="长短按容错：技能键按住超时也算技能", variable=self.forgive_var,
-            command=self._on_forgive, bg=theme.PANEL, fg=theme.TEXT_DIM,
-            selectcolor=theme.PANEL_2, activebackground=theme.PANEL,
-            activeforeground=theme.TEXT, relief="flat", bd=0,
-            highlightthickness=0, anchor="w",
-            font=theme.font(theme.F_BODY)).pack(fill="x", padx=dpi.S(8))
-
-        self.skip_var = tk.BooleanVar(value=bool(getattr(self.s, "auto_skip", True)))
-        tk.Checkbutton(
-            box1, text="按错自动跳：按到后面的技能直接跟上", variable=self.skip_var,
-            command=self._on_skip, bg=theme.PANEL, fg=theme.TEXT_DIM,
+            box1, text="长短按容错：技能按久仍算技能；误按/多按始终不中断",
+            variable=self.forgive_var, command=self._on_forgive, bg=theme.PANEL, fg=theme.TEXT_DIM,
             selectcolor=theme.PANEL_2, activebackground=theme.PANEL,
             activeforeground=theme.TEXT, relief="flat", bd=0,
             highlightthickness=0, anchor="w",
@@ -286,12 +294,31 @@ class SettingsDialog:
         self.s.only_game_focus = bool(self.focus_var.get())
         self.store.save_settings()
 
+    def _poll_pad(self):
+        """设置窗开着时一直显示手柄连没连上。"""
+        try:
+            text, color = self.app.pad_status_text()
+            self.pad_state.configure(text="当前：" + text.replace("手柄：", ""),
+                                     fg=color)
+            self._pad_job = self.win.after(1000, self._poll_pad)
+        except tk.TclError:
+            self._pad_job = None
+
+    def _detect_pad(self):
+        """主动探测一次：插拔手柄后不用等下一轮轮询。"""
+        try:
+            text, color = self.app.detect_gamepad()
+        except Exception as exc:  # noqa: BLE001
+            messagebox.showwarning("手柄检测失败", str(exc), parent=self.win)
+            return
+        try:
+            self.pad_state.configure(text="当前：" + text.replace("手柄：", ""),
+                                     fg=color)
+        except tk.TclError:
+            pass
+
     def _on_forgive(self):
         self.s.forgive_hold = bool(self.forgive_var.get())
-        self.store.save_settings()
-
-    def _on_skip(self):
-        self.s.auto_skip = bool(self.skip_var.get())
         self.store.save_settings()
 
     def _on_pad(self):
@@ -300,6 +327,12 @@ class SettingsDialog:
         self.app.set_gamepad_enabled(self.pad_var.get())
 
     def close(self):
+        if getattr(self, "_pad_job", None):
+            try:
+                self.win.after_cancel(self._pad_job)
+            except tk.TclError:
+                pass
+            self._pad_job = None
         try:
             self.win.grab_release()
         except tk.TclError:

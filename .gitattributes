@@ -1,0 +1,14 @@
+# 统一换行，避免同一份源码出现整文件 diff
+*.py    text eol=lf
+*.json  text eol=lf
+*.md    text eol=lf
+*.txt   text eol=lf
+*.bat   text eol=crlf
+*.spec  text eol=lf
+
+# 二进制素材不做换行转换
+*.png   binary
+*.jpg   binary
+*.ico   binary
+*.exe   binary
+*.zip   binary

@@ -20,6 +20,54 @@ if getattr(sys, "frozen", False):
         sys.path.insert(0, _exe_dir)
 
 
+def _prefer_external_code():
+    """打包后允许用 exe 旁边的 .py 覆盖内置模块（增量更新用）。
+
+    更新器只会把改过的文件写到 exe 所在目录，这里让 import 优先读磁盘上的
+    那一份：`app/model.py` 存在时就用它，不存在时回落到 PyInstaller 内置副本。
+    开发态不生效，避免干扰正常的源码导入。
+    """
+    if not getattr(sys, "frozen", False):
+        return
+    exe_dir = os.path.dirname(os.path.abspath(sys.executable))
+    if not exe_dir or not os.path.isdir(exe_dir):
+        return
+
+    import importlib.machinery
+    import importlib.util
+
+    class _ExternalFinder:
+        """只接管 exe 目录里真实存在的 .py / 包。"""
+
+        @staticmethod
+        def _locate(fullname):
+            rel = fullname.replace(".", os.sep)
+            candidates = (
+                os.path.join(exe_dir, rel + ".py"),
+                os.path.join(exe_dir, rel, "__init__.py"),
+            )
+            for path in candidates:
+                if os.path.isfile(path):
+                    return path
+            return None
+
+        def find_spec(self, fullname, path=None, target=None):
+            if fullname != "app" and not fullname.startswith("app."):
+                return None
+            origin = self._locate(fullname)
+            if origin is None:
+                return None
+            is_pkg = origin.endswith("__init__.py")
+            return importlib.util.spec_from_file_location(
+                fullname, origin,
+                submodule_search_locations=[os.path.dirname(origin)] if is_pkg else None)
+
+    sys.meta_path.insert(0, _ExternalFinder())
+
+
+_prefer_external_code()
+
+
 def _maybe_elevate():
     """打包运行时，如果不是管理员就尝试提权重启。
 

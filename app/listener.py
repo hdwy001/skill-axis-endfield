@@ -67,6 +67,7 @@ class KeyListener:
         self.on_event = on_event
         self.watch_mouse = watch_mouse
         self._last = {}
+        self._pressed = set()       # 键盘按下边沿；过滤系统自动重复 KEYDOWN
         self._lock = threading.Lock()
         self.hook_ok = False
         self.mouse_hook_ok = False
@@ -89,12 +90,23 @@ class KeyListener:
 
     def stop(self):
         self.running = False
+        with self._lock:
+            self._pressed.clear()
 
     # ---------- 去重与分发 ----------
     def _emit(self, vk, source, down=True):
         now = time.monotonic()
         key = (vk, bool(down))
         with self._lock:
+            # 鼠标钩子目前只发 down，继续使用时间窗去重；键盘则维护真实
+            # 按下集合，只让 up -> down 边沿通过，长按自动重复不会再次触发。
+            if vk < MOUSE_BASE:
+                if down:
+                    if vk in self._pressed:
+                        return
+                    self._pressed.add(vk)
+                else:
+                    self._pressed.discard(vk)
             if now - self._last.get(key, 0.0) < DEDUPE_WINDOW:
                 return
             self._last[key] = now

@@ -7,9 +7,11 @@
     current_axis() 当前所在技能轴（悬浮窗据此显示「充能轴 / 爆发轴」）
 """
 
+import time
+
 MATCH = "match"
 WRONG = "wrong"
-JUMP = "jump"          # 容错：按到后面的技能，已自动跳过去
+JUMP = "jump"          # 容错：按到本段后面的技能，自动追到该节点之后
 IGNORED = "ignored"
 FINISHED = "finished"
 
@@ -39,6 +41,12 @@ class Player:
         self.index = 0              # 段内第几个节点
         self.done = set()
         self._segments = []
+        # 输入容错：过滤按键自动重复、手柄抖动和很短时间内的重复多按。
+        # 120ms 足以覆盖硬件/系统重复，又不会妨碍正常技能节奏。
+        self.duplicate_window = 0.12
+        self.clock = time.monotonic
+        self._last_input = None
+        self._last_input_at = 0.0
         self.rebuild()
 
     # ---------- 结构 ----------
@@ -103,6 +111,8 @@ class Player:
         self.segment = 0
         self.index = 0
         self.done = set()
+        self._last_input = None
+        self._last_input_at = 0.0
         self._skip_empty()
 
     def _skip_empty(self):
@@ -156,6 +166,18 @@ class Player:
         if node is None:
             return FINISHED, None
 
+        # 同一输入在极短时间内重复出现，视为按键自动重复、手柄抖动或多按。
+        # 在循环刚回到开头时也保留这个保护，避免最后一个技能的重复输入
+        # 误触发下一轮第一个同键技能。
+        signature = (vk, button, bool(hold))
+        now = self.clock()
+        if (signature == self._last_input
+                and now - self._last_input_at < self.duplicate_window):
+            self._last_input_at = now
+            return IGNORED, ("duplicate", node)
+        self._last_input = signature
+        self._last_input_at = now
+
         s = self.settings
         any_key = getattr(s, "mode", "strict") == "any"
         if any_key or self._matches(node, vk, button, hold):
@@ -164,16 +186,16 @@ class Player:
             return MATCH, node
 
         forgive = bool(getattr(s, "forgive_hold", False))
-        auto = bool(getattr(s, "auto_skip", False))
 
-        # 容错一：技能节点被长按（手抖按住超过阈值）——按同一颗键，照样算这个技能
+        # 容错一：技能节点被长按（手抖按住超过阈值）——按同一颗键，照样算这个技能。
         if forgive and hold and node.kind == KIND_SKILL:
             if self._matches(node, vk, button, False):
                 self.done.add(self.index)
                 self._advance()
                 return MATCH, node
 
-        # 容错二：按到了本段后面节点的键
+        # 容错二：按到了本段后面的技能，自动跳过中间节点并继续循环。
+        # 只在当前技能轴内追赶，避免一次误按跨过整条轴或整轮循环。
         axis = self.current_axis()
         old_index = self.index
         for i in range(old_index + 1, len(axis.nodes)):
@@ -182,18 +204,17 @@ class Player:
             if not ok and forgive and hold and n.kind == KIND_SKILL:
                 ok = self._matches(n, vk, button, False)
             if ok:
-                if auto:
-                    skipped = i - old_index
-                    self._skip_to(i)
-                    return JUMP, (n, skipped)
-                return WRONG, (node, n, i)
+                skipped = i - old_index
+                self._skip_to(i)
+                return JUMP, (n, skipped)
 
-        # 也检查后面几段：按到「更后面的轴」的键同样算顺序错（不自动跳，容易乱）
+        # 其它误按、虚按、多按只反馈，不改变进度，更不会暂停循环。
+        # 即使它碰巧属于后面的技能轴，也留在当前节点继续等待正确输入。
         for seg in self._segments[self.segment + 1:]:
             for i, n in enumerate(seg.axis.nodes):
                 if self._matches(n, vk, button, hold):
                     return WRONG, (node, n, i)
-        return IGNORED, None
+        return IGNORED, ("noise", node)
 
     def _team_members(self):
         """当前编队的队伍；编队没有队伍时退回全局默认。"""
@@ -252,7 +273,7 @@ class Player:
         return True
 
     def _skip_to(self, index):
-        """把当前段推进到第 index 个节点之后（含它），容错跳转用。"""
+        """把当前段推进到第 index 个节点之后（含它），用于自动追轴。"""
         seg = self.segment
         guard = 0
         while self.segment == seg and self.index <= index and guard < 512:

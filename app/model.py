@@ -10,8 +10,11 @@
 """
 import json
 import os
+import time
 import uuid
 from dataclasses import dataclass, field
+
+from .version import VERSION as APP_VERSION
 
 ROLE_CHARGE = "charge"
 ROLE_BURST = "burst"
@@ -60,6 +63,16 @@ PAD_ULT_ALT = "alt"
 PAD_ULT_MODES = (PAD_ULT_HOLD, PAD_ULT_ALT)
 DEFAULT_PAD_ULT_MODE = PAD_ULT_HOLD
 DEFAULT_PAD_ULT_MODIFIER = PAD_RB
+
+
+def _unique_name(name, taken):
+    """重名就加 (2)(3)…"""
+    if name not in taken:
+        return name
+    i = 2
+    while "%s (%d)" % (name, i) in taken:
+        i += 1
+    return "%s (%d)" % (name, i)
 
 
 def new_id():
@@ -238,9 +251,9 @@ class Settings:
     pad_ult_mode: str = DEFAULT_PAD_ULT_MODE
     pad_ult_modifier: int = DEFAULT_PAD_ULT_MODIFIER   # alt 方式下的终结键（默认 RB）
 
-    # 错按容错
-    forgive_hold: bool = True    # 技能节点被长按（手抖按住超时）也照样算技能
-    auto_skip: bool = True       # 按到本段后面的技能就跳过去，而不是卡在原地
+    # 输入容错：技能长按仍可视为技能；误按/虚按/多按不会中断循环。
+    # 按到当前技能轴后面的有效节点时，播放器会自动追轴继续。
+    forgive_hold: bool = True
 
     def pad_slot_key(self, slot):
         """队伍第 slot 位对应的手柄按键位。"""
@@ -293,7 +306,6 @@ class Settings:
             s.pad_ult_mode = DEFAULT_PAD_ULT_MODE
         s.pad_ult_modifier = int(s.pad_ult_modifier or DEFAULT_PAD_ULT_MODIFIER)
         s.forgive_hold = bool(s.forgive_hold)
-        s.auto_skip = bool(s.auto_skip)
         s.hold_ms = max(60, int(s.hold_ms or DEFAULT_HOLD_MS))
         s.combo_key = int(s.combo_key or DEFAULT_COMBO_KEY)
         return s
@@ -548,43 +560,223 @@ class Store:
         return True
 
     # ---------- 导入导出 ----------
-    def export_dict(self):
+    def export_dict(self, rotation=None):
+        """导出成可分享的 JSON。
+
+        rotation 给定时只导出这一个编队（含它用到的技能轴和它的队伍）。
+        """
+        if rotation is not None:
+            ids = list(rotation.charge_axes)
+            if rotation.burst_axis:
+                ids.append(rotation.burst_axis)
+            axes = [a for a in self.axes if a.id in ids]
+            rots = [rotation]
+            scope = "rotation"
+        else:
+            axes = self.axes
+            rots = self.rotations
+            scope = "all"
+        st = self.settings
         return {
             "format": "skill-axis",
-            "version": 3,
-            "axes": [a.to_dict() for a in self.axes],
-            "rotations": [r.to_dict() for r in self.rotations],
+            "version": 5,
+            "app": "技能轴提示器",
+            "app_version": APP_VERSION,
+            "exported_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "scope": scope,
+            "counts": {"axes": len(axes), "rotations": len(rots),
+                       "teams": sum(1 for r in rots if any(r.members()))},
+            "axes": [a.to_dict() for a in axes],
+            "rotations": [r.to_dict() for r in rots],
             "team": self.team.to_dict(),
-            "settings": {"combo_key": self.settings.combo_key,
-                         "hold_ms": self.settings.hold_ms,
-                         "pad": dict(self.settings.pad)},
+            # 只带「跟着走」的东西：键位/手柄/判定，不含窗口位置这种本机偏好
+            "settings": {"combo_key": st.combo_key,
+                         "hold_ms": st.hold_ms,
+                         "pad": dict(st.pad),
+                         "pad_modifier": st.pad_modifier,
+                         "pad_combo": st.pad_combo,
+                         "pad_slots": dict(st.pad_slots),
+                         "pad_ult_mode": st.pad_ult_mode,
+                         "pad_ult_modifier": st.pad_ult_modifier,
+                         "forgive_hold": st.forgive_hold},
         }
 
-    def import_dict(self, data, merge=False):
-        if not isinstance(data, dict) or "axes" not in data:
-            return False, "文件格式不对：缺少 axes"
+    def import_preview(self, data):
+        """导入前先看一眼：返回 (ok, 摘要)。不落盘。"""
+        ok, err, axes, rots = self._parse_import(data)
+        if not ok:
+            return False, err
+        lines = ["这个文件里有：",
+                 "· 技能轴 %d 条：%s" % (len(axes),
+                                        "、".join(a.name for a in axes[:6])
+                                        + ("…" if len(axes) > 6 else "")),
+                 "· 编队 %d 个：%s" % (len(rots),
+                                      "、".join(r.name for r in rots[:6])
+                                      + ("…" if len(rots) > 6 else ""))]
+        teams = [r for r in rots if any(r.members())]
+        if teams:
+            lines.append("· 队伍 %d 支（每个编队各带一支）" % len(teams))
+            members = [m for m in teams[0].members() if m]
+            if members:
+                lines.append("  例：%s → %s" % (teams[0].name, "、".join(members)))
+        # 引用完整性：导进来之前就告诉用户哪些编队是空的
+        live = {a.id for a in axes}
+        broken = [r.name for r in rots
+                  if not any(i in live for i in r.charge_axes)
+                  and (not r.burst_axis or r.burst_axis not in live)]
+        if broken:
+            lines.append("· 注意：%d 个编队引用的技能轴不在文件里（%s），"
+                         "导入后会各自挂到第一条充能轴"
+                         % (len(broken), "、".join(broken[:3])))
+        if data.get("exported_at"):
+            lines.append("· 导出时间：%s" % data.get("exported_at"))
+        if data.get("app_version"):
+            lines.append("· 导出方版本：%s" % data.get("app_version"))
+        return True, chr(10).join(lines)
+
+    def _parse_import(self, data):
+        if not isinstance(data, dict):
+            return False, "文件内容不是 JSON 对象", [], []
+        if data.get("format") not in (None, "skill-axis"):
+            return False, "这不是本工具的配置文件（format=%r）" % data.get("format"), [], []
+        if not isinstance(data.get("axes"), list):
+            return False, "文件格式不对：缺少 axes 列表", [], []
         try:
             axes = [Axis.from_dict(d) for d in data.get("axes", [])]
             rots = [Rotation.from_dict(d) for d in data.get("rotations", [])]
         except Exception as e:
-            return False, "解析失败：%s" % e
+            return False, "解析失败：%s" % e, [], []
         if not axes:
-            return False, "文件里没有技能轴"
+            return False, "文件里没有技能轴", [], []
+        return True, "", axes, rots
+
+    def import_dict(self, data, merge=False):
+        ok, err, axes, rots = self._parse_import(data)
+        if not ok:
+            return False, err
+
+        if not rots:
+            # 老格式（只有技能轴）：顺手造一个编队，别导进来啥都看不
+            charge = [a.id for a in axes if a.role == ROLE_CHARGE][:1]
+            burst = next((a.id for a in axes if a.role == ROLE_BURST), "")
+            rots = [Rotation(id=new_id(), name="导入的编队",
+                             charge_axes=charge, burst_axis=burst)]
+
         if merge:
-            existing = {a.id for a in self.axes}
+            # ---- 追加 ----
+            # 关键点：id 重映射只作用在「导入的编队」上。
+            # 现有编队引用的仍然是自己原来的轴，绝不能被动改到新导入的轴。
+            remap = {}
+            taken_ids = {a.id for a in self.axes}
+            taken_names = {a.name for a in self.axes}
             for a in axes:
-                if a.id in existing:
+                if a.id in taken_ids:
+                    old_id = a.id
                     a.id = new_id()
-            self.axes.extend(axes)
-            existing_r = {r.id for r in self.rotations}
+                    remap[old_id] = a.id
+                if a.name in taken_names:
+                    a.name = _unique_name(a.name, taken_names)
+                taken_ids.add(a.id)
+                taken_names.add(a.name)
+
+            rot_ids = {r.id for r in self.rotations}
             for r in rots:
-                if r.id in existing_r:
+                r.charge_axes = [remap.get(i, i) for i in r.charge_axes]
+                if r.burst_axis:
+                    r.burst_axis = remap.get(r.burst_axis, r.burst_axis)
+                if r.id in rot_ids:
                     r.id = new_id()
+                rot_ids.add(r.id)
+                r.name = _unique_name(r.name,
+                                      {x.name for x in self.rotations}
+                                      | {x.name for x in rots if x is not r})
+                # 没带队伍就沿用当前编队，避免导入后队伍是空的
+                if not any(r.members()):
+                    active = self.active_rotation()
+                    if active is not None:
+                        r.team = Team(members=list(active.members()))
+            self.axes.extend(axes)
             self.rotations.extend(rots)
         else:
+            # ---- 替换 ----
             self.axes = axes
-            self.rotations = rots or self.rotations
+            self.rotations = rots
             if "team" in data:
                 self.team = Team.from_dict(data["team"])
+            base_team = self.team.normalized()
+            for r in self.rotations:
+                if not any(r.members()):
+                    r.team = Team(members=list(base_team))
+            self.settings.active_rotation = (
+                self.rotations[0].id if self.rotations else "")
+
+        # 文件里带的键位 / 手柄 / 判定设置一起导回来（不含窗口位置这类本机偏好）
+        self._apply_imported_settings(data.get("settings") or {})
+        self._repair_references()
         self.save_all()
-        return True, "导入 %d 条技能轴、%d 个编队" % (len(axes), len(rots))
+        return True, "导入 %d 条技能轴、%d 个编队、%d 支队伍" % (
+            len(axes), len(rots),
+            sum(1 for r in rots if any(r.members())))
+
+    # 导出时会写进文件的设置字段；其余（窗口坐标、缩放、透明度）属于本机偏好
+    IMPORT_SETTING_KEYS = ("combo_key", "hold_ms", "pad_modifier", "pad_combo",
+                           "pad_ult_mode", "pad_ult_modifier", "forgive_hold")
+
+    def _apply_imported_settings(self, payload):
+        """把导入文件里的键位/手柄设置合并进来，坏值直接跳过。"""
+        if not isinstance(payload, dict):
+            return
+        s = self.settings
+        for key in self.IMPORT_SETTING_KEYS:
+            if key not in payload:
+                continue
+            value = payload.get(key)
+            if value is None:
+                continue
+            try:
+                if key == "forgive_hold":
+                    s.forgive_hold = bool(value)
+                elif key == "hold_ms":
+                    s.hold_ms = max(60, int(value))
+                elif key == "pad_ult_mode":
+                    if value in PAD_ULT_MODES:
+                        s.pad_ult_mode = value
+                else:
+                    setattr(s, key, int(value))
+            except (TypeError, ValueError):
+                continue
+        pad = payload.get("pad")
+        if isinstance(pad, dict):
+            merged = dict(s.pad or {})
+            for kind, bit in pad.items():
+                if kind in KINDS:
+                    try:
+                        merged[kind] = int(bit)
+                    except (TypeError, ValueError):
+                        continue
+            s.pad = merged
+        slots = payload.get("pad_slots")
+        if isinstance(slots, dict):
+            merged = dict(s.pad_slots or {})
+            for slot, bit in slots.items():
+                try:
+                    merged[int(slot)] = int(bit)
+                except (TypeError, ValueError):
+                    continue
+            s.pad_slots = merged
+        self.save_settings()
+
+    def _repair_references(self):
+        """丢掉指向不存在技能轴的引用，并保证每个编队至少有内容。"""
+        live = {a.id for a in self.axes}
+        charge_ids = [a.id for a in self.axes if a.role == ROLE_CHARGE]
+        for r in self.rotations:
+            r.charge_axes = [i for i in r.charge_axes if i in live]
+            if r.burst_axis and r.burst_axis not in live:
+                r.burst_axis = ""
+            if not r.charge_axes and not r.burst_axis and charge_ids:
+                r.charge_axes = [charge_ids[0]]
+        active = self.settings.active_rotation
+        if self.rotations and self.rotation_by_id(active) is None:
+            self.settings.active_rotation = self.rotations[0].id
+

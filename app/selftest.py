@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.model import (Axis, KIND_COMBO, KIND_SKILL, KIND_ULT,  # noqa: E402
                        Node, ROLE_BURST, ROLE_CHARGE, Rotation, Settings,
                        Store, Team)
-from app.player import FINISHED, JUMP, MATCH, WRONG, Player  # noqa: E402
+from app.player import FINISHED, IGNORED, JUMP, MATCH, WRONG, Player  # noqa: E402
 from app.padrouter import PadRouter  # noqa: E402
 
 def _base():
@@ -103,13 +103,12 @@ def test_slot_mapping():
     """数字键按队伍顺序绑定。"""
     p, rot, axes, s = mk_player(charge_kinds=((KIND_SKILL, KIND_SKILL),),
                                 team=("佩丽卡", "管理员"))
-    s.auto_skip = False      # 这条只测严格模式
     p.start()
     n0 = p.current()
     slot0 = p.store.team.normalized().index(n0.operator)
     check("第 1 位对应键 1", s.slot_key(slot0) == 0x31)
-    p.press(vk=0x32)          # 按第 2 位的键 -> 顺序错
-    check("按错位次的键不推进", p.index == 0)
+    p.press(vk=0x34)          # 当前轴没有第 4 位节点：应容错忽略
+    check("无关位次的键不推进", p.index == 0)
     p.press(vk=0x31)
     check("按对位次的键推进", p.index == 1)
 
@@ -137,15 +136,13 @@ def test_ult_requires_hold():
 
 
 def test_tolerance_defaults():
-    """容错默认开着，设置能持久化。"""
+    """长短按容错默认开着，误按/多按容错由播放器始终提供。"""
     s = Settings()
     check("默认长短按容错开着", s.forgive_hold is True)
-    check("默认按错自动跳开着", s.auto_skip is True)
-    s2 = Settings.from_dict({"forgive_hold": False, "auto_skip": False})
-    check("容错开关可持久化",
-          s2.forgive_hold is False and s2.auto_skip is False)
-    s3 = Settings.from_dict({"forgive_hold": 0, "auto_skip": 0})
-    check("容错开关存成 0 也是关", s3.forgive_hold is False and s3.auto_skip is False)
+    s2 = Settings.from_dict({"forgive_hold": False})
+    check("容错开关可持久化", s2.forgive_hold is False)
+    s3 = Settings.from_dict({"forgive_hold": 0})
+    check("容错开关存成 0 也是关", s3.forgive_hold is False)
 
 
 def test_hold_threshold_setting():
@@ -159,6 +156,8 @@ def test_forgive_hold():
     """容错：技能节点被长按（手抖按住超时）也算技能。"""
     p, rot, axes, s = mk_player(charge_kinds=((KIND_SKILL, KIND_COMBO),),
                                 team=("佩丽卡", "管理员"))
+    now = [500.0]
+    p.clock = lambda: now[0]
     p.start()
     slot = p.store.team.normalized().index(p.current().operator)
     digit = s.slot_key(slot)
@@ -167,6 +166,7 @@ def test_forgive_hold():
     r, _ = p.press(vk=digit, hold=True)
     check("关掉容错：长按技能键不算进", r != MATCH)
 
+    now[0] += 0.20
     s.forgive_hold = True
     r, _ = p.press(vk=digit, hold=True)
     check("开着容错：长按技能键也算进", r == MATCH)
@@ -179,37 +179,64 @@ def test_forgive_hold():
     check("容错不影响终结技的长按要求", r2 != MATCH)
 
 
-def test_auto_skip():
-    """容错：按到本段后面的技能，自动跳过去。"""
+def test_tolerant_progress():
+    """误按不中断；按到后续技能自动追轴；短时间重复输入不多推进。"""
     p, rot, axes, s = mk_player(charge_kinds=((KIND_SKILL, KIND_SKILL, KIND_COMBO),),
                                 team=("佩丽卡", "管理员", "陈千语"))
+    now = [1000.0]
+    p.clock = lambda: now[0]
     p.start()
     team = p.store.team.normalized()
-    # 当前应放第 1 个（佩丽卡 技能），故意按第 2 个（管理员 技能）
-    slot2 = team.index(axes[0].nodes[1].operator)
-    digit2 = s.slot_key(slot2)
+    digit2 = s.slot_key(team.index(axes[0].nodes[1].operator))
 
-    s.auto_skip = False
     r, info = p.press(vk=digit2, hold=False)
-    check("关掉自动跳：按后面的键 = 顺序错", r == WRONG)
-    check("顺序错会告诉你是哪颗节点", info[1] is axes[0].nodes[1])
-    check("关掉自动跳不会推进进度", p.index == 0)
+    check("按到本段后面的技能会自动追轴", r == JUMP)
+    check("追轴会报告跳过数量", info[0] is axes[0].nodes[1] and info[1] == 1)
+    check("追轴后继续等待下一技能", p.state == "running" and p.index == 2)
 
-    s.auto_skip = True
-    r2, info2 = p.press(vk=digit2, hold=False)
-    check("开着自动跳：按后面的键 = 已跳过去", r2 == JUMP)
-    check("跳过后跳过数量对", info2[1] == 1)
-    check("跳过后指针落在那个节点之后", p.index == 2)
-    check("跳过的节点都算已放", {0, 1} <= p.done)
+    # 当前应按连携，误按一个绑定数字键：保持运行且不改变进度。
+    now[0] += 0.20
+    r2, _ = p.press(vk=s.slot_key(0), hold=False)
+    check("普通误按不会暂停循环", p.state == "running")
+    check("普通误按不会乱推进", r2 in (WRONG, IGNORED) and p.index == 2)
 
-    # 跳到最后一个节点：应该直接进下一段
-    p3, _r3, axes3, s3 = mk_player(charge_kinds=((KIND_SKILL, KIND_COMBO),),
-                                   team=("佩丽卡", "管理员"))
+    now[0] += 0.20
+    r3, _ = p.press(vk=s.combo_key, hold=False)
+    check("误按后按对仍能继续", r3 == MATCH and p.state == "running")
+
+    # 两个连续节点故意使用同一个键；120ms 内的第二下视为抖动/多按，
+    # 超过窗口后再按则是用户真实施放的下一个技能。
+    p2, _rot2, axes2, s2 = mk_player(charge_kinds=((KIND_SKILL, KIND_SKILL),),
+                                     team=("佩丽卡", "管理员"))
+    axes2[0].nodes[1].operator = axes2[0].nodes[0].operator
+    now2 = [2000.0]
+    p2.clock = lambda: now2[0]
+    p2.start()
+    same_key = s2.slot_key(0)
+    first, _ = p2.press(vk=same_key, hold=False)
+    now2[0] += 0.05
+    duplicate, _ = p2.press(vk=same_key, hold=False)
+    check("第一次输入正常推进", first == MATCH and p2.index == 1)
+    check("短时间重复多按被吞掉", duplicate == IGNORED and p2.index == 1)
+    now2[0] += 0.20
+    next_real, _ = p2.press(vk=same_key, hold=False)
+    check("超过容错窗口后同键可正常推进", next_real == MATCH and p2.state == "running")
+
+    # 一轮结束后若末尾输入抖动，不得误推进下一轮第一个同键节点。
+    p3, _rot3, axes3, s3 = mk_player(charge_kinds=((KIND_SKILL,),),
+                                     burst_kinds=(KIND_SKILL,), team=("佩丽卡",))
+    axes3[-1].nodes[0].operator = "佩丽卡"
+    now3 = [3000.0]
+    p3.clock = lambda: now3[0]
     p3.start()
-    team3 = p3.store.team.normalized()
-    combo = s3.combo_key
-    r3, _ = p3.press(vk=combo, hold=False)
-    check("跳到段尾会进下一段", r3 == JUMP and p3.segment == 1 and p3.index == 0)
+    loop_key = s3.slot_key(0)
+    p3.press(vk=loop_key, hold=False)
+    now3[0] += 0.20
+    p3.press(vk=loop_key, hold=False)
+    check("完成一轮后回到开头", p3.cycle == 1 and p3.index == 0)
+    now3[0] += 0.04
+    bounce, _ = p3.press(vk=loop_key, hold=False)
+    check("轮末多按不会误推下一轮", bounce == IGNORED and p3.cycle == 1 and p3.index == 0)
 
 
 def test_restart_keeps_running():
@@ -460,6 +487,141 @@ def test_export_import():
     shutil.rmtree(tmp2, ignore_errors=True)
 
 
+def test_export_single_rotation_keeps_team():
+    """只导出当前编队时，队伍和它引用的技能轴都要在文件里。"""
+    base = _base()
+    tmp = os.path.join(base, "data", "_selftest_tmp8")
+    shutil.rmtree(tmp, ignore_errors=True)
+    os.makedirs(tmp, exist_ok=True)
+    store = Store(tmp)
+    rot = store.active_rotation()
+    rot.team = Team(members=["伊冯", "别礼", "卡缪", "大潘"])
+    data = store.export_dict(rot)
+    check("单编队导出范围标记正确", data.get("scope") == "rotation")
+    check("单编队导出带上了队伍",
+          data["rotations"][0]["team"]["members"][0] == "伊冯")
+    ids = {a["id"] for a in data["axes"]}
+    refs = set(data["rotations"][0]["charge_axes"])
+    if data["rotations"][0].get("burst_axis"):
+        refs.add(data["rotations"][0]["burst_axis"])
+    check("单编队导出的引用都包含在 axes 里", refs <= ids)
+
+    # 再导进一个新 store，队伍应当原样回来
+    tmp2 = os.path.join(base, "data", "_selftest_tmp9")
+    shutil.rmtree(tmp2, ignore_errors=True)
+    os.makedirs(tmp2, exist_ok=True)
+    fresh = Store(tmp2)
+    ok, _msg = fresh.import_dict(data, merge=False)
+    check("单编队文件可以导入", ok)
+    check("导入后队伍保持原样",
+          fresh.rotations[0].members()[0] == "伊冯")
+    shutil.rmtree(tmp, ignore_errors=True)
+    shutil.rmtree(tmp2, ignore_errors=True)
+
+
+def test_merge_import_keeps_existing_refs():
+    """追加导入时，原有编队不能因为 id 冲突被改指向新导入的轴。"""
+    base = _base()
+    tmp = os.path.join(base, "data", "_selftest_tmp10")
+    shutil.rmtree(tmp, ignore_errors=True)
+    os.makedirs(tmp, exist_ok=True)
+    store = Store(tmp)
+    old_rot = store.active_rotation()
+    old_axis_ids = list(old_rot.charge_axes)
+    old_axis_name = store.axis_by_id(old_axis_ids[0]).name
+
+    # 构造一个和现有 id 完全冲突的文件
+    axis = store.axis_by_id(old_axis_ids[0])
+    payload = {
+        "format": "skill-axis",
+        "axes": [{"id": axis.id, "name": "导入同名轴", "role": ROLE_CHARGE,
+                  "nodes": [{"operator": "佩丽卡", "kind": KIND_SKILL}]}],
+        "rotations": [{"id": old_rot.id, "name": old_rot.name,
+                       "charge_axes": [axis.id], "burst_axis": "",
+                       "team": {"members": ["余烬", "", "", ""]}}],
+        "settings": {"combo_key": 0x51, "hold_ms": 400},
+    }
+    ok, _msg = store.import_dict(payload, merge=True)
+    check("id 冲突的追加导入成功", ok)
+
+    still = store.rotation_by_id(old_rot.id)
+    check("原编队保持不变", still is not None and still is store.rotations[0])
+    check("原编队的引用仍然指自己的轴",
+          store.rotations[0].charge_axes == old_axis_ids
+          and store.axis_by_id(old_axis_ids[0]).name == old_axis_name)
+
+    imported = store.rotations[-1]
+    check("导入编队换成了新 id", imported.id != old_rot.id)
+
+    new_axis = store.axis_by_id(imported.charge_axes[0])
+    check("导入编队指向新导入的轴",
+          new_axis is not None and new_axis.name == "导入同名轴")
+    check("导入的名字冲突会被修饰",
+          new_axis.name != old_axis_name and imported.name != old_rot.name)
+    check("导入的键位设置生效",
+          store.settings.combo_key == 0x51 and store.settings.hold_ms == 400)
+    shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_import_repairs_dangling_refs():
+    """文件里引用不存在的轴时，导入后编队要挂到有效轴而不是空着。"""
+    base = _base()
+    tmp = os.path.join(base, "data", "_selftest_tmp11")
+    shutil.rmtree(tmp, ignore_errors=True)
+    os.makedirs(tmp, exist_ok=True)
+    store = Store(tmp)
+    payload = {
+        "format": "skill-axis",
+        "axes": [{"id": "a1", "name": "唯一充能", "role": ROLE_CHARGE,
+                  "nodes": [{"operator": "佩丽卡", "kind": KIND_SKILL}]}],
+        "rotations": [{"id": "r1", "name": "断引用编队",
+                       "charge_axes": ["不存在"], "burst_axis": "也不存在"}],
+    }
+    ok, _msg = store.import_dict(payload, merge=False)
+    check("断引用文件仍可导入", ok)
+    rot = store.rotations[0]
+    check("断引用被清掉并挂到有效轴", rot.charge_axes == ["a1"])
+    check("失效的爆发轴引用被清空", rot.burst_axis == "")
+    check("活动编队指向导入的编队",
+          store.settings.active_rotation == rot.id)
+    shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_updater_plan():
+    """更新器只挑缺失或哈希不一致的文件，且挡掉越界路径。"""
+    try:
+        from app import updater as up
+    except Exception as exc:  # noqa: BLE001
+        check("更新器模块可导入", False, repr(exc))
+        return
+    base = _base()
+    tmp = os.path.join(base, "data", "_selftest_tmp12")
+    shutil.rmtree(tmp, ignore_errors=True)
+    os.makedirs(tmp, exist_ok=True)
+
+    same = os.path.join(tmp, "same.py")
+    with open(same, "w", encoding="utf-8") as f:
+        f.write("x = 1\n")
+    digest = up.file_hash(same)
+    manifest = {"version": "9.9.9", "files": {
+        "same.py": {"sha256": digest, "size": 6},
+        "missing.py": {"sha256": "0" * 64, "size": 10},
+        "../evil.py": {"sha256": "0" * 64, "size": 1},
+    }}
+    todo = up.plan(manifest, tmp)
+    names = [rel for rel, _info in todo]
+    check("哈希一致的文件不下载", "same.py" not in names)
+    check("缺失的文件会下载", "missing.py" in names)
+    check("越界路径被挡掉", all(".." not in n for n in names))
+    check("safe_relpath 拒绝绝对路径",
+          up.safe_relpath("/etc/passwd") is None
+          and up.safe_relpath("C:/windows/x") is None)
+    check("版本比较可用",
+          up.is_newer("1.10.0", "1.9.9") and not up.is_newer("1.2.0", "1.3.0"))
+    shutil.rmtree(tmp, ignore_errors=True)
+
+
+
 def test_legacy_migration():
     axis = Axis.from_dict({
         "id": "old1", "name": "旧技能轴", "kind": "loop",
@@ -661,7 +823,7 @@ def main():
                test_combo_key, test_ult_requires_hold, test_hold_threshold_setting,
                test_infinite, test_wrong_key, test_key_map, test_any_mode,
                test_gamepad, test_skip, test_empty_segment_skipped,
-               test_tolerance_defaults, test_forgive_hold, test_auto_skip,
+               test_tolerance_defaults, test_forgive_hold, test_tolerant_progress,
                test_restart_keeps_running,
                test_pad_ult_hold_mode, test_pad_ult_alt_mode,
                test_pad_ult_modifier_separate, test_ult_mode_setting,
@@ -669,6 +831,9 @@ def main():
                test_hotdata_dirty_flow, test_per_rotation_team,
                test_rotation_team_affects_keys, test_rename_rotation,
                test_store_roundtrip, test_settings_keys, test_export_import,
+               test_export_single_rotation_keeps_team,
+               test_merge_import_keeps_existing_refs,
+               test_import_repairs_dangling_refs, test_updater_plan,
                test_legacy_migration, test_assets, test_render, test_fonts):
         try:
             fn()

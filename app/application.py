@@ -65,9 +65,11 @@ class Application:
                                     watch_mouse=self.settings.watch_mouse)
         self.gamepad = GamepadListener(self.events)
         self.pad_connected = False
+        self.pad_slot = None
 
         self.overlay = None
         self.test_panel = None
+        self.update_dialog = None
         self._bind_cb = None
         self._pad_bind_cb = None
         self._hold_start = {}       # 数字键按下时刻，用于长按判定
@@ -79,6 +81,8 @@ class Application:
         if self.settings.gamepad_enabled:
             self.gamepad.start()
         self.root.after(25, self._drain)
+        # 启动时探一次，之后每 1.5 秒刷新，手柄拔插都能立刻反映到界面
+        self.root.after(120, self._tick_pad_status)
 
     # ================= 自动保存 =================
     SAVE_DELAY_MS = 800
@@ -150,7 +154,10 @@ class Application:
             if kind == "pad":
                 self._handle_pad(item[1], item[2])
             elif kind == "gamepad":
+                before = self.pad_connected
                 self.pad_connected = (item[1] == "connected")
+                self.pad_slot = item[2] if self.pad_connected else None
+                self._on_pad_status(before)
                 if self.editor is not None:
                     try:
                         self.editor._sync_settings_widgets()
@@ -292,36 +299,47 @@ class Application:
             if self.player.state == "finished":
                 self._beep(880, 160)
         elif result == JUMP:
-            # 容错：已跳到所按的那个技能
+            # 按到了本段后面的技能：自动追轴，循环保持运行。
             target, skipped = info
             self.refresh_overlay()
             self.overlay_flash(ok=True)
             cur = self.player.current()
             if cur is not None:
-                self.overlay_show_hint("已跳过 %d 个（按了「%s」），现在应放「%s」"
+                self.overlay_show_hint("已容错追轴：跳过 %d 个并接住「%s」，现在应放「%s」"
                                        % (skipped, self._node_name(target),
                                           self._node_name(cur)))
             else:
-                self.overlay_show_hint("已跳到「%s」" % self._node_name(target))
+                self.overlay_show_hint("已容错追轴到「%s」，继续下一段" % self._node_name(target))
         elif result == WRONG:
+            # 按到了其它技能轴的绑定键：只提示，不暂停、不重置、不改当前进度。
             cur = info[0] if info else self.player.current()
             self.refresh_overlay()
             self.overlay_flash(ok=False)
-            self.overlay_show_hint("顺序不对：现在应放「%s」" % self._node_name(cur))
+            self.overlay_show_hint("已忽略误按，循环继续；现在应放「%s」" % self._node_name(cur))
         elif result == IGNORED:
-            # 按的是绑定键但当前不该按（或超出了这条轴）—— 给个反馈，别毫无反应
+            if self.player.state != "running":
+                return
+            reason = info[0] if isinstance(info, tuple) and info else ""
+            if reason == "duplicate":
+                # 自动重复、手柄抖动和很短时间内的多按静默吞掉，避免提示刷屏。
+                return
             if vk is None or int(vk) not in self._bound_keys():
                 return
             cur = self.player.current()
             if cur is None:
                 return
             self.overlay_flash(ok=False)
-            self.overlay_show_hint("这一下对不上：当前应放「%s」" % self._node_name(cur))
+            self.overlay_show_hint("已忽略虚按/多按，循环继续；现在应放「%s」" % self._node_name(cur))
 
     # ================= 播放 =================
     def reset_player(self, hint=True):
         """重置播放进度到第一条技能（保持原来的运行/暂停状态）。"""
         state = self.player.restart()
+        if self.overlay is not None:
+            try:
+                self.overlay.set_error(False)
+            except Exception:
+                pass
         self.refresh_overlay()
         if hint:
             if state == "idle":
@@ -380,6 +398,36 @@ class Application:
         if self.is_overlay_visible():
             self.overlay.redraw()
 
+    # ---------- 手柄状态 ----------
+    def pad_status_text(self):
+        """(文案, 颜色) —— 主界面/设置里显示手柄连没连上。"""
+        if not self.settings.gamepad_enabled:
+            return ("手柄：已关闭", theme.TEXT_MUTED)
+        if not getattr(self.gamepad, "available", False):
+            return ("手柄：XInput 不可用", theme.BAD)
+        if self.pad_connected:
+            slot = "" if self.pad_slot is None else " #%d" % (self.pad_slot + 1)
+            return ("手柄：已连接%s" % slot, theme.GREEN)
+        return ("手柄：未连接", theme.WARN)
+
+    def _on_pad_status(self, before):
+        try:
+            self.editor.refresh_pad_label()
+        except Exception:
+            pass
+        if before != self.pad_connected and self.settings.gamepad_enabled:
+            if self.pad_connected:
+                self.overlay_show_hint("手柄已连接")
+            else:
+                self.overlay_show_hint("手柄断开了：检查有线/接收器，或换 USB 口")
+        self.refresh_overlay()
+
+    def refresh_pad_label(self):
+        try:
+            self.editor.refresh_pad_label()
+        except Exception:
+            pass
+
     def overlay_show_hint(self, text):
         if self.is_overlay_visible():
             self.overlay.show_hint(text)
@@ -424,6 +472,8 @@ class Application:
             self.pad_router.reset()
         elif not self.gamepad._thread:
             self.gamepad.start()
+        self.refresh_pad_label()
+        self.refresh_overlay()
 
     # ================= 面板 =================
     def open_test_panel(self):
@@ -444,6 +494,59 @@ class Application:
                 self.test_panel.refresh_status()
             except tk.TclError:
                 self.test_panel = None
+
+    def open_update(self):
+        """打开「检查更新」窗口；同一时间只留一个。"""
+        existing = getattr(self, "update_dialog", None)
+        if existing is not None:
+            try:
+                existing.win.deiconify()
+                existing.win.lift()
+                return
+            except tk.TclError:
+                self.update_dialog = None
+        from .updatedialog import UpdateDialog
+        self.update_dialog = UpdateDialog(self)
+
+    # ================= 手柄检测 =================
+    def detect_gamepad(self):
+        """主动探测一次手柄连接状态，返回 (文案, 颜色)。
+
+        平时靠轮询线程的 connected/disconnected 事件维持状态；这个入口给
+        「检测手柄」按钮和启动时用，避免插拔后状态迟迟不刷新。
+        """
+        if not self.settings.gamepad_enabled:
+            self.pad_connected = False
+            self.pad_slot = None
+            return self.pad_status_text()
+        if not getattr(self.gamepad, "available", False):
+            self.pad_connected = False
+            self.pad_slot = None
+            return self.pad_status_text()
+        if not self.gamepad._thread:
+            self.gamepad.start()
+        before = self.pad_connected
+        connected = bool(self.gamepad.connected_now())
+        self.pad_connected = connected
+        self.pad_slot = self.gamepad.slot if connected else None
+        if connected and not before:
+            self.pad_router.reset()
+        if before != self.pad_connected:
+            self._on_pad_status(before)
+        else:
+            self.refresh_pad_label()
+        return self.pad_status_text()
+
+    def _tick_pad_status(self):
+        """定时刷新手柄状态，握把/接收器拔插后界面不会一直停在旧状态。"""
+        try:
+            self.detect_gamepad()
+        except Exception:
+            pass
+        try:
+            self.root.after(1500, self._tick_pad_status)
+        except tk.TclError:
+            pass
 
     # ================= 持久化 =================
     def persist(self):

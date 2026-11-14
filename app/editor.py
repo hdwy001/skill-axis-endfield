@@ -113,6 +113,13 @@ class Editor:
         self.perm_label.bind("<Button-1>", lambda e: self._on_perm_click())
         self._refresh_perm_label()
 
+        # 手柄状态：开着监听时一直显示连没连上
+        self.pad_label = tk.Label(head, bg=theme.BG_2, cursor="hand2",
+                                  font=theme.font(theme.F_TINY))
+        self.pad_label.pack(side="right", padx=dpi.Spair((0, 10)))
+        self.pad_label.bind("<Button-1>", lambda e: self._detect_pad())
+        self.refresh_pad_label()
+
         _btn(right, "打开悬浮窗", self.app.show_overlay, "primary").pack(
             side="left", padx=dpi.S(4))
         _btn(right, "重置进度", self.app.reset_player, "ghost").pack(
@@ -122,6 +129,8 @@ class Editor:
         _btn(right, "导入", self.do_import, "ghost").pack(
             side="left", padx=dpi.S(4))
         _btn(right, "导出", self.do_export, "ghost").pack(
+            side="left", padx=dpi.S(4))
+        _btn(right, "检查更新", self.app.open_update, "ghost").pack(
             side="left", padx=dpi.S(4))
         _btn(right, "设置", self.open_settings, "ghost").pack(
             side="left", padx=dpi.S(4))
@@ -133,6 +142,28 @@ class Editor:
         SettingsDialog(self.app)
 
     # ---------- 权限状态 ----------
+    def refresh_pad_label(self):
+        """主界面右上角的手柄连接状态。"""
+        if not hasattr(self, "pad_label"):
+            return
+        text, color = self.app.pad_status_text()
+        try:
+            self.pad_label.configure(text=text + "（点这里检测）", fg=color)
+        except tk.TclError:
+            pass
+
+    def _detect_pad(self):
+        """点状态文字时主动检测一次手柄。"""
+        try:
+            text, color = self.app.detect_gamepad()
+        except Exception as exc:  # noqa: BLE001
+            messagebox.showwarning("手柄检测失败", str(exc), parent=self.root)
+            return
+        try:
+            self.pad_label.configure(text=text + "（点这里检测）", fg=color)
+        except tk.TclError:
+            pass
+
     def _refresh_perm_label(self):
         from .elevation import is_admin
         admin = is_admin()
@@ -1122,20 +1153,60 @@ class Editor:
         self.refresh_timeline()
 
     # ---------- 导入导出 ----------
+    def _ask_export_scope(self):
+        """弹个小菜单选导出范围。返回 "all" / "rotation" / None。"""
+        menu = tk.Menu(self.root, tearoff=0, bg=theme.PANEL_2, fg=theme.TEXT,
+                       activebackground=theme.ACCENT,
+                       activeforeground="#221a06",
+                       bd=0, font=theme.font(theme.F_SMALL))
+        picked = {"v": None}
+        menu.add_command(label="导出全部（所有编队 + 技能轴）",
+                         command=lambda: picked.update(v="all"))
+        rot = self.current_rotation()
+        menu.add_command(
+            label="只导出当前编队%s（含它的技能轴和队伍）" % (
+                "「%s」" % rot.name if rot else ""),
+            command=lambda: picked.update(v="rotation"))
+        try:
+            x, y = self.root.winfo_pointerxy()
+            menu.tk_popup(x, y)
+        finally:
+            menu.grab_release()
+        return picked["v"]
+
     def do_export(self):
+        scope = self._ask_export_scope()
+        if not scope:
+            return
+        rot = self.current_rotation() if scope == "rotation" else None
+        if scope == "rotation" and rot is None:
+            messagebox.showinfo("没有编队", "当前还没有编队可以导出。",
+                                parent=self.root)
+            return
+        stamp = time.strftime("%Y%m%d")
+        if rot is not None:
+            default = "编队-%s-%s.json" % (rot.name, stamp)
+        else:
+            default = "终末地技能轴-%s.json" % stamp
         path = filedialog.asksaveasfilename(
             parent=self.root, title="导出配置", defaultextension=".json",
-            initialfile="终末地技能轴.json",
+            initialfile=default,
             filetypes=[("JSON 文件", "*.json"), ("所有文件", "*.*")])
         if not path:
             return
+        data = self.store.export_dict(rot)
         try:
             with open(path, "w", encoding="utf-8") as f:
-                json.dump(self.store.export_dict(), f, ensure_ascii=False, indent=2)
+                json.dump(data, f, ensure_ascii=False, indent=2)
         except OSError as e:
             messagebox.showerror("导出失败", str(e), parent=self.root)
             return
-        messagebox.showinfo("导出成功", "已保存到：\n%s" % path, parent=self.root)
+        counts = data.get("counts", {})
+        messagebox.showinfo(
+            "导出成功",
+            "已导出 %d 条技能轴、%d 个编队\n\n%s"
+            % (counts.get("axes", 0), counts.get("rotations", 0), path),
+            parent=self.root)
 
     def do_import(self):
         path = filedialog.askopenfilename(
@@ -1149,14 +1220,27 @@ class Editor:
         except (OSError, ValueError) as e:
             messagebox.showerror("读取失败", str(e), parent=self.root)
             return
-        merge = messagebox.askyesno(
-            "导入方式", "要把导入的内容追加到现有配置里吗？\n\n是 = 追加\n否 = 替换全部",
-            parent=self.root)
-        ok, msg = self.store.import_dict(data, merge=merge)
+
+        ok, summary = self.store.import_preview(data)
+        if not ok:
+            messagebox.showerror("导入失败", summary, parent=self.root)
+            return
+        ans = messagebox.askyesnocancel(
+            "导入",
+            summary + "\n\n是 = 追加到现有内容（推荐）\n否 = 替换全部内容\n"
+                      "取消 = 不导入",
+            parent=self.root, default="yes")
+        if ans is None:
+            return
+        ok, msg = self.store.import_dict(data, merge=bool(ans))
         if not ok:
             messagebox.showerror("导入失败", msg, parent=self.root)
             return
+        self.selected_member = ""
         self.current_axis_id = self.store.axes[0].id if self.store.axes else None
         self.refresh_all()
         self.app.rebuild_player()
-        messagebox.showinfo("导入成功", msg, parent=self.root)
+        messagebox.showinfo(
+            "导入成功",
+            "%s（%s）" % (msg, "已追加" if ans else "已替换全部"),
+            parent=self.root)

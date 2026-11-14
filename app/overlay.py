@@ -60,6 +60,7 @@ class Overlay:
         self._hint_until = 0
         self._flash_until = 0.0
         self._flash_ok = True
+        self._error = False
         self._drag = None
         self._resize = None
         self._opacity_drag = False
@@ -227,9 +228,38 @@ class Overlay:
                 break
 
     def _flash_color(self):
+        if self._error:
+            return theme.BAD          # 停住时一直红着，直到重置
         if time.time() < self._flash_until:
             return theme.OK if self._flash_ok else theme.BAD
         return ""
+
+    def set_error(self, flag):
+        """按错停住时把当前技能框成红色。"""
+        self._error = bool(flag)
+        self._safe_redraw()
+
+    def shake(self):
+        """按错时抖一下窗口，抖完回原位。"""
+        try:
+            x, y = self.win.winfo_x(), self.win.winfo_y()
+        except tk.TclError:
+            return
+        d = max(4, int(round(7 * self._u)))
+        seq = [(d, 0), (-d, 0), (d // 2, 0), (-d // 2, 0), (0, 0)]
+
+        def step(i=0):
+            if i >= len(seq):
+                return
+            try:
+                dx, dy = seq[i]
+                self.win.geometry("+%d+%d" % (x + dx, y + dy))
+            except tk.TclError:
+                return
+            if i + 1 < len(seq):
+                self.win.after(48, lambda: step(i + 1))
+
+        step()
 
     def _tick(self):
         self._pulse_on = not self._pulse_on
@@ -266,6 +296,8 @@ class Overlay:
         p = self.app.player
         if not nodes:
             return "这条技能轴还没有技能"
+        if p.state == "error":
+            return "按错了 · 已停止 · 按 F8 或右上角「重」重置后继续"
         if p.state in ("idle",):
             return "按 F7 开始提示 · F8 重置（当前未启动）"
         if p.state == "paused":
@@ -277,6 +309,9 @@ class Overlay:
                 missing.append(n.operator)
         if missing:
             return "这些干员不在当前编队里：%s" % "、".join(missing[:3])
+        st = self.app.store.settings
+        if st.gamepad_enabled and not getattr(self.app, "pad_connected", False):
+            return "手柄未连接：检查线缆/接收器（设置里可关手柄监听）"
         return ""
 
     # ---------- 命中区 ----------

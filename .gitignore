@@ -27,6 +27,6 @@ preview/
 
 # 本地产物与临时脚本（不属于项目源码）
 github_upload/
-_*.py
+/_*.py
 交接摘要.md
 .gittools/
