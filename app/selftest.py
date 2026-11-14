@@ -12,6 +12,15 @@ from app.model import (Axis, KIND_COMBO, KIND_SKILL, KIND_ULT,  # noqa: E402
 from app.player import FINISHED, MATCH, WRONG, Player  # noqa: E402
 from app.padrouter import PadRouter  # noqa: E402
 
+def _base():
+    """程序根目录：开发时是项目根，打包后是 exe 所在目录（data/ 就在旁边）。"""
+    try:
+        from app.paths import base_dir
+        return base_dir()
+    except Exception:  # noqa: BLE001
+        return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
 results = []
 
 
@@ -135,7 +144,7 @@ def test_hold_threshold_setting():
 
 def test_hotdata_dirty_flow():
     """保存 / 放弃 的流程。"""
-    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base = _base()
     tmp = os.path.join(base, "data", "_selftest_tmp5")
     shutil.rmtree(tmp, ignore_errors=True)
     os.makedirs(tmp, exist_ok=True)
@@ -165,7 +174,7 @@ def test_hotdata_dirty_flow():
 
 def test_per_rotation_team():
     """每个编队有自己的队伍。"""
-    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base = _base()
     tmp = os.path.join(base, "data", "_selftest_tmp6")
     shutil.rmtree(tmp, ignore_errors=True)
     os.makedirs(tmp, exist_ok=True)
@@ -290,7 +299,7 @@ def test_empty_segment_skipped():
 
 # ---------- 存储 ----------
 def test_store_roundtrip():
-    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base = _base()
     tmp = os.path.join(base, "data", "_selftest_tmp")
     shutil.rmtree(tmp, ignore_errors=True)
     os.makedirs(tmp, exist_ok=True)
@@ -319,8 +328,7 @@ def test_store_roundtrip():
 
 
 def test_settings_keys():
-    tmp_dir = os.path.join(os.path.dirname(os.path.dirname(
-        os.path.abspath(__file__))), "data", "_selftest_tmp4")
+    tmp_dir = os.path.join(_base(), "data", "_selftest_tmp4")
     shutil.rmtree(tmp_dir, ignore_errors=True)
     os.makedirs(tmp_dir, exist_ok=True)
     store = Store(tmp_dir)
@@ -339,7 +347,7 @@ def test_settings_keys():
 
 
 def test_export_import():
-    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base = _base()
     tmp = os.path.join(base, "data", "_selftest_tmp2")
     shutil.rmtree(tmp, ignore_errors=True)
     os.makedirs(tmp, exist_ok=True)
@@ -374,7 +382,7 @@ def test_legacy_migration():
 
 # ---------- 资源 ----------
 def test_assets():
-    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base = _base()
     icons = os.path.join(base, "data", "icons")
     portraits = os.path.join(base, "data", "portraits")
     n_icons = len([f for f in os.listdir(icons) if f.endswith(".png")]) \
@@ -391,7 +399,7 @@ def test_render():
     except Exception as exc:  # noqa: BLE001
         check("图标合成模块可导入", False, repr(exc))
         return
-    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base = _base()
     glyph = os.path.join(base, "data", "icons", "佩丽卡_技能.png")
     portrait = os.path.join(base, "data", "portraits", "佩丽卡.png")
     if not os.path.isfile(glyph):
@@ -528,7 +536,7 @@ def test_ult_mode_setting():
 
 def test_move_rotation():
     """编队可以拖动改顺序，且顺序会落盘。"""
-    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base = _base()
     tmp = os.path.join(base, "data", "_selftest_tmp7")
     shutil.rmtree(tmp, ignore_errors=True)
     os.makedirs(tmp, exist_ok=True)
@@ -574,7 +582,7 @@ def main():
         except Exception as exc:  # noqa: BLE001
             check(fn.__name__ + " 未抛异常", False, repr(exc))
 
-    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base = _base()
     for d in ("_selftest_tmp", "_selftest_tmp2", "_selftest_tmp3",
               "_selftest_tmp4", "_selftest_tmp5", "_selftest_tmp6",
               "_selftest_tmp7"):
