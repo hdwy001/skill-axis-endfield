@@ -12,6 +12,7 @@ import json
 import os
 import re
 import time
+from .brand import APP_TITLE as APP_NAME, APP_VERSION
 import uuid
 from dataclasses import dataclass, field
 
@@ -827,14 +828,32 @@ class Store:
         self.save_rotations()
 
     # ---------- 导入导出 ----------
-    def export_dict(self):
-        """整份导出：轴（含分支卡片/循环次数）、编队顺序、队伍、**完整设置**。"""
+    def export_dict(self, rotation=None):
+        """导出配置。
+
+        不给 rotation：整份导出（轴、编队顺序、队伍、完整设置）。
+        给 rotation  ：只导出这一个编队，连同它自己用的轴和队伍，
+                       方便单独分享一套打法。
+        """
+        if rotation is not None:
+            ids = list(rotation.sequence())
+            axes = [a for a in self.axes if a.id in ids]
+            rots = [rotation]
+            scope = "rotation"
+        else:
+            axes = self.axes
+            rots = self.rotations
+            scope = "all"
         return {
             "format": "skill-axis",
-            "version": 4,
+            "version": 5,
+            "app": APP_NAME,
+            "app_version": APP_VERSION,
             "exported_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "axes": [a.to_dict() for a in self.axes],
-            "rotations": [r.to_dict() for r in self.rotations],
+            "scope": scope,
+            "counts": {"axes": len(axes), "rotations": len(rots)},
+            "axes": [a.to_dict() for a in axes],
+            "rotations": [r.to_dict() for r in rots],
             "team": self.team.to_dict(),
             "settings": self.settings.to_dict(),
         }

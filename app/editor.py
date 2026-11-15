@@ -167,6 +167,7 @@ class Editor:
         _btn(right, "按键测试", self.app.open_test_panel, "ghost").pack(side="left", padx=4)
         _btn(right, "导入", self.do_import, "ghost").pack(side="left", padx=4)
         _btn(right, "导出", self.do_export, "ghost").pack(side="left", padx=4)
+        _btn(right, "检查更新", self.app.open_update, "ghost").pack(side="left", padx=4)
         _btn(right, "设置", self.open_settings, "ghost").pack(side="left", padx=4)
 
         tk.Frame(self.root, bg=theme.BORDER, height=1).pack(fill="x")
@@ -2042,20 +2043,61 @@ class Editor:
         self.refresh_timeline()
 
     # ---------- 导入导出 ----------
+    def _ask_export_scope(self):
+        """弹个小菜单选导出范围。返回 "all" / "rotation" / None。"""
+        menu = tk.Menu(self.root, tearoff=0, bg=theme.PANEL_2, fg=theme.TEXT,
+                       activebackground=theme.ACCENT,
+                       activeforeground="#221a06",
+                       bd=0, font=theme.font(theme.F_SMALL))
+        picked = {"v": None}
+        menu.add_command(label="导出全部（所有编队 + 技能轴 + 设置）",
+                         command=lambda: picked.update(v="all"))
+        rot = self.current_rotation()
+        menu.add_command(
+            label="只导出当前编队%s（含它的技能轴与队伍）" % (
+                "「%s」" % rot.name if rot else ""),
+            command=lambda: picked.update(v="rotation"))
+        try:
+            x, y = self.root.winfo_pointerxy()
+            menu.tk_popup(x, y)
+        finally:
+            try:
+                menu.grab_release()
+            except tk.TclError:
+                pass
+        return picked["v"]
+
     def do_export(self):
+        scope = self._ask_export_scope()
+        if not scope:
+            return
+        rot = self.current_rotation() if scope == "rotation" else None
+        if scope == "rotation" and rot is None:
+            messagebox.showinfo("没有编队", "当前还没有编队可以导出。",
+                                parent=self.root)
+            return
+        stamp = time.strftime("%Y%m%d")
+        initial = ("编队-%s-%s.json" % (rot.name, stamp)) if rot is not None \
+            else ("终末地技能轴-%s.json" % stamp)
         path = filedialog.asksaveasfilename(
             parent=self.root, title="导出配置", defaultextension=".json",
-            initialfile="终末地技能轴.json",
+            initialfile=initial,
             filetypes=[("JSON 文件", "*.json"), ("所有文件", "*.*")])
         if not path:
             return
+        data = self.store.export_dict(rot)
         try:
             with open(path, "w", encoding="utf-8") as f:
-                json.dump(self.store.export_dict(), f, ensure_ascii=False, indent=2)
+                json.dump(data, f, ensure_ascii=False, indent=2)
         except OSError as e:
             messagebox.showerror("导出失败", str(e), parent=self.root)
             return
-        messagebox.showinfo("导出成功", "已保存到：\n%s" % path, parent=self.root)
+        counts = data.get("counts", {})
+        messagebox.showinfo(
+            "导出成功",
+            "已导出 %d 条技能轴、%d 个编队\n\n%s"
+            % (counts.get("axes", 0), counts.get("rotations", 0), path),
+            parent=self.root)
 
     def _ask_import_mode(self):
         """导入编队方式：覆盖全部 / 在现有基础上添加。"""

@@ -1,0 +1,140 @@
+{
+  "version": "1.1.0",
+  "app": "大祥老师的终末地助手",
+  "generated_at": "2026-11-15 16:55:13",
+  "repo": "hdwy001/skill-axis-endfield",
+  "files": {
+    "app/application.py": {
+      "sha256": "67346c959ead35d2873313a1614598669c9c2ad9bbf8ad955972486a6960bd52",
+      "size": 20025
+    },
+    "app/brand.py": {
+      "sha256": "c42dc5b30dbfc1423f1d71511bc8df47702028aa32df6e77b225a9bd68ecbb75",
+      "size": 1054
+    },
+    "app/dpi.py": {
+      "sha256": "b57c64b097379ad96f15bfe43de96eda86213641ce1546a7624bfacd40b0b0a8",
+      "size": 1988
+    },
+    "app/dragfx.py": {
+      "sha256": "db6de83d05bfc8f3c0b2f709df5d0c2cfaee9c185819bd465b6d4b19005c7cf4",
+      "size": 5773
+    },
+    "app/editor.py": {
+      "sha256": "ec794533f7805c94542c9f8278901497648ec986491e8291d2393eb864b7ec3e",
+      "size": 90831
+    },
+    "app/elevation.py": {
+      "sha256": "d28e03f64ec6c4999de25f7211a0b8ca04f49b392a5b93464cc4742f037e1deb",
+      "size": 2154
+    },
+    "app/fonts.py": {
+      "sha256": "d889310fa1f45ca746644dd9c158bd02783718e8726e67e14ad9856366298a48",
+      "size": 5260
+    },
+    "app/forms.py": {
+      "sha256": "cace7b4abd29d972e4a3348c26b9792292d8cee291afbe4c8bfc6a4cfb62ed70",
+      "size": 3017
+    },
+    "app/gamepad.py": {
+      "sha256": "a40efb68128141769888835f85d8a660e91295594627a03e0730625cc709d6b4",
+      "size": 5414
+    },
+    "app/iconart.py": {
+      "sha256": "348ec4c7e4ef3df0b5fdb0cde23e5362b28ec80eb527accef5e36a0b24df99e1",
+      "size": 7810
+    },
+    "app/iconpicker.py": {
+      "sha256": "e5626d2218689922f60f72baf29f9ef879f53c9b7a2d7c18bfd27d276dae9472",
+      "size": 7285
+    },
+    "app/icons.py": {
+      "sha256": "3abac520b3c8b7cccb2276548fe3a3bc2ef14750d6c6194ecac68b78e1753593",
+      "size": 11548
+    },
+    "app/keys.py": {
+      "sha256": "e393173acd18b3a6f8399afa0fcfa7677698863612c4446011f02cfd76f6ba7a",
+      "size": 1472
+    },
+    "app/layeredwin.py": {
+      "sha256": "dea3ee6659a83eb161c63558cd456b8a637ba5866039b625ddd8f6351e326cad",
+      "size": 5262
+    },
+    "app/listener.py": {
+      "sha256": "e26b04044dfd5257c3080b21e8b6a483b92cd022a24abf6e871b5051bd8f1e75",
+      "size": 6363
+    },
+    "app/menu.py": {
+      "sha256": "d170828f8baec52e9c94a7ec2f9f3bb15c7f5ff3314295fbc1026701143faa40",
+      "size": 5577
+    },
+    "app/model.py": {
+      "sha256": "e3b5318d26da3c901dc7c7d443e7cff16949a7ba44dbb54f5935ec36ae92bdc0",
+      "size": 34767
+    },
+    "app/opspicker.py": {
+      "sha256": "88f6ce36af77f06df07032dfb44f47b2e15360b35dd6379a3b2696c8f279e639",
+      "size": 6131
+    },
+    "app/overlay.py": {
+      "sha256": "24c1e35336e1bff4a90e04cef865a6aaaabd6b34bd64d3f72e0ee1db3c811012",
+      "size": 31343
+    },
+    "app/padrules.py": {
+      "sha256": "163884ebc5b347814b17beb44cdd9768a036acfd659c3dac117a15f7dbd9f366",
+      "size": 3968
+    },
+    "app/paths.py": {
+      "sha256": "695f12a6260daad575d6d8c915f86344c7e38e50bf832e236574b9d128aa992f",
+      "size": 792
+    },
+    "app/player.py": {
+      "sha256": "c95db806d1c8927db9d1d0a822473500d94064cda1073f328642cbfb40f26dca",
+      "size": 15566
+    },
+    "app/selftest.py": {
+      "sha256": "adbfad921ae520bf2cf24cb88f16730b32cd3e3a07169e36024e74059b26b939",
+      "size": 46977
+    },
+    "app/settingsdialog.py": {
+      "sha256": "a093794a55c6786436b2e6891db4857c874d977142a3c5d7081d031d7ff4d7c7",
+      "size": 11004
+    },
+    "app/testpanel.py": {
+      "sha256": "063ef0deae049ef042c13450047b639bf48a835e78e0edc136ba3ec379f9fa2b",
+      "size": 9633
+    },
+    "app/textdialog.py": {
+      "sha256": "14f67c7a7f05ab472cbce0c8957dc543f8299f1226a26b3802420f9c7f0dbb2a",
+      "size": 2912
+    },
+    "app/theme.py": {
+      "sha256": "a03ecec9133055a3b6be3d25606b8f087f0b2407ec81dbbb4f47154fcc31fb05",
+      "size": 1454
+    },
+    "app/updatedialog.py": {
+      "sha256": "f622d94cc4c81eb803a1191f674adca06a2e518e4f4ce3277e0ac65ff07cc6d6",
+      "size": 8348
+    },
+    "app/updater.py": {
+      "sha256": "3f8a538b6838fea781fc8ffc24d6f236350bcf685f1aa55366b9fa79a53972f8",
+      "size": 5074
+    },
+    "app/widgets.py": {
+      "sha256": "f63a9b69a5d9689096572a1148b55b5ab7de7d1c2d6c854bff9a96353fb58492",
+      "size": 2198
+    },
+    "main.py": {
+      "sha256": "5489d6034733a670174b61f157ab59fa90f8a019a6cfe6f5acdaeb8095b2c9b4",
+      "size": 3579
+    },
+    "使用说明.md": {
+      "sha256": "39f188c204b863f8efe88c05c4a7c864b6be73a58fc9b41ab17f5cad937a5620",
+      "size": 16026
+    },
+    "启动说明.txt": {
+      "sha256": "a2be2b0c7df3ec295f2a3d1d52b749e9ba0d8ccc349ca2444a3aea1a61d876e8",
+      "size": 2827
+    }
+  }
+}

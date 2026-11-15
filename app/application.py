@@ -7,7 +7,7 @@ import sys
 import time
 import tkinter as tk
 
-from . import fonts, paths, theme
+from . import dpi, fonts, paths, theme
 from .brand import APP_TITLE, icon_png
 from .editor import Editor
 from .gamepad import GamepadListener, button_name
@@ -17,7 +17,7 @@ from .listener import KeyListener
 from .model import Store
 from .overlay import Overlay
 from .padrules import PadRules
-from .player import FINISHED, IGNORED, MATCH, WRONG, Player
+from .player import FINISHED, IGNORED, JUMP, MATCH, WRONG, Player
 from .testpanel import TestPanel
 
 user32 = ctypes.WinDLL("user32", use_last_error=True)
@@ -30,7 +30,17 @@ except Exception:  # pragma: no cover
 
 class Application:
     def __init__(self):
+        # 开窗前先声明 DPI 感知，否则 Windows 会把整窗位图放大（字和图标发虚）
+        try:
+            dpi.enable()
+        except Exception:                       # noqa: BLE001
+            pass
         self.root = tk.Tk()
+        # 字体用点（pt）为单位；把 pt->像素 比例跟 DPI 对齐，字号自动跟随缩放
+        try:
+            self.root.tk.call("tk", "scaling", dpi.factor() * 96.0 / 72.0)
+        except tk.TclError:
+            pass
         fonts.setup()
         self.root.title("%s · 明日方舟：终末地" % APP_TITLE)
         self.root.geometry("1320x880")
@@ -63,6 +73,7 @@ class Application:
 
         self.overlay = None
         self.test_panel = None
+        self.update_dialog = None
         self._bind_cb = None
         self._pad_bind_cb = None
         self._hold_start = {}       # 数字键按下时刻，用于长按判定
@@ -337,18 +348,40 @@ class Application:
             self.refresh_overlay()
             if self.player.state == "finished":
                 self._beep(880, 160)
+        elif result == JUMP:
+            # 按到了本段后面的技能：自动追轴，循环保持运行
+            target, skipped = info
+            self.refresh_overlay()
+            cur = self.player.current()
+            if cur is not None:
+                self.overlay_show_hint(
+                    "已容错追轴：跳过 %d 个并接住「%s」，现在应放「%s」"
+                    % (skipped, self._node_text(target), self._node_text(cur)))
+            else:
+                self.overlay_show_hint("已容错追轴到「%s」，继续下一段"
+                                       % self._node_text(target))
         elif result == WRONG:
             cur = info[0]
             self.refresh_overlay()
-            # Node 没有 skill 字段（以前这里访问 cur.skill 会抛 AttributeError，
-            # 直接把事件循环带走）。用干员名 + 技能种类来提示。
-            try:
-                who = "%s · %s" % (cur.operator or "该干员", cur.label)
-            except AttributeError:
-                who = "当前技能"
-            self.overlay_show_hint("顺序不对：现在应放「%s」" % who)
+            # 只提示，不暂停、不改进度：误按不该打断循环
+            self.overlay_show_hint("已忽略误按，循环继续；现在应放「%s」"
+                                   % self._node_text(cur))
+        elif result == IGNORED:
+            # 虚按、多按、自动重复、未绑定键一律静默：不打断循环，也不刷屏
+            return
         elif result == FINISHED:
             pass
+
+    @staticmethod
+    def _node_text(node):
+        """把一个节点说成人话，用于悬浮窗提示。"""
+        if node is None:
+            return "当前技能"
+        try:
+            who = (node.operator or "").strip()
+            return ("%s · %s" % (who, node.label)) if who else node.label
+        except AttributeError:
+            return "当前技能"
 
     # ================= 播放 =================
     def rebuild_player(self):
@@ -468,6 +501,19 @@ class Application:
                 self.test_panel.refresh_status()
             except tk.TclError:
                 self.test_panel = None
+
+    def open_update(self):
+        """打开「检查更新」窗口；同一时间只留一个。"""
+        existing = getattr(self, "update_dialog", None)
+        if existing is not None:
+            try:
+                existing.win.deiconify()
+                existing.win.lift()
+                return
+            except tk.TclError:
+                self.update_dialog = None
+        from .updatedialog import UpdateDialog
+        self.update_dialog = UpdateDialog(self)
 
     # ================= 持久化 =================
     def persist(self):

@@ -9,10 +9,13 @@
 
 MATCH = "match"
 WRONG = "wrong"
+JUMP = "jump"          # 容错：按到本段后面的技能，自动追到该节点之后继续
 IGNORED = "ignored"
 FINISHED = "finished"
 
 IDLE = "idle"
+
+import time  # noqa: E402
 
 from .model import (KIND_BRANCH, KIND_COMBO, KIND_SKILL, KIND_ULT,  # noqa: E402
                     Node)
@@ -40,6 +43,12 @@ class Player:
         self.done = set()
         self._segments = []
         self.repeat_done = 0        # 当前这一段已经重复走过几遍（充能轴循环用）
+        # 输入容错：过滤按键自动重复、手柄抖动和很短时间内的重复多按。
+        # 120ms 足以覆盖硬件/系统重复，又不会妨碍正常技能节奏。
+        self.duplicate_window = 0.12
+        self.clock = time.monotonic
+        self._last_input = None
+        self._last_input_at = 0.0
         # 分支：走到分支点后选的路线（None 表示在主线）
         #   {"axis": Axis, "nodes": [...], "index": 0, "merge": bool, "name": str}
         self.route = None
@@ -113,6 +122,8 @@ class Player:
         self.done = set()
         self.repeat_done = 0
         self.route = None
+        self._last_input = None
+        self._last_input_at = 0.0
         self._skip_empty()
 
     def _skip_empty(self):
@@ -192,6 +203,18 @@ class Player:
         if node is None:
             return FINISHED, None
 
+        # 同一输入在极短时间内重复出现，视为按键自动重复、手柄抖动或多按。
+        # 在循环刚回到开头时也保留这个保护，避免最后一个技能的重复输入
+        # 误触发下一轮第一个同键技能。
+        signature = (vk, button, bool(hold))
+        now = self.clock()
+        if (signature == self._last_input
+                and now - self._last_input_at < self.duplicate_window):
+            self._last_input_at = now
+            return IGNORED, ("duplicate", node)
+        self._last_input = signature
+        self._last_input_at = now
+
         # 分支点：等一个「预设键」，按到哪条就走哪条
         if node.kind == KIND_BRANCH:
             opt = self._match_branch(node, vk, button, hold)
@@ -206,14 +229,30 @@ class Player:
             self._advance()
             return MATCH, node
 
-        # 按到了本段后面节点的键
-        axis = self.current_axis()
-        for i in range(self.index + 1, len(axis.nodes)):
-            n = axis.nodes[i]
-            if self._matches(n, vk, button, hold):
-                return WRONG, (node, n, i)
+        # 容错一：技能节点被长按（手抖按住超过阈值）——按同一颗键，照样算这个技能
+        if (bool(getattr(self.settings, "forgive_hold", False)) and hold
+                and node.kind == KIND_SKILL
+                and self._matches(node, vk, button, False)):
+            self.done.add(self.index)
+            self._advance()
+            return MATCH, node
 
-        # 也检查后面几段：按到「更后面的轴」的键同样算顺序错
+        # 容错二：按到本段后面的技能，自动跳过中间节点并继续（只在当前轴内追赶，
+        # 避免一次误按跨过整条轴或整轮循环）
+        if self.route is None:
+            axis = self.current_axis()
+            for i in range(self.index + 1, len(axis.nodes)):
+                n = axis.nodes[i]
+                ok = self._matches(n, vk, button, hold)
+                if (not ok and bool(getattr(self.settings, "forgive_hold", False))
+                        and hold and n.kind == KIND_SKILL):
+                    ok = self._matches(n, vk, button, False)
+                if ok:
+                    skipped = i - self.index
+                    self._skip_to(i)
+                    return JUMP, (n, skipped)
+
+        # 也检查后面几段：按到「更后面的轴」的键同样算顺序错（只提示，不打断循环）
         for seg in self._segments[self.segment + 1:]:
             for i, n in enumerate(seg.axis.nodes):
                 if self._matches(n, vk, button, hold):
@@ -334,6 +373,15 @@ class Player:
         if axis is not None and self.index < len(axis.nodes):
             return
         self._advance_segment(after_route=True)
+
+    def _skip_to(self, index):
+        """把当前段推进到第 index 个节点之后（含它），用于自动追轴。"""
+        seg = self.segment
+        guard = 0
+        while self.segment == seg and self.index <= index and guard < 512:
+            self.done.add(self.index)
+            self._advance()
+            guard += 1
 
     def _advance(self):
         # 路线里推进：走完再看要不要汇合

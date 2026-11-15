@@ -4,8 +4,8 @@ import os
 
 APP_TITLE = "大祥老师的终末地助手"
 APP_SUB = "明日方舟：终末地 · 编队编排"
-APP_VERSION = "1.0.0"
-APP_VERSION_CN = "1.0"
+APP_VERSION = "1.1.0"
+APP_VERSION_CN = "1.1"
 APP_PUBLISHER = "Luyoo"
 
 

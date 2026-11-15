@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.model import (Axis, KIND_COMBO, KIND_SKILL, KIND_ULT,  # noqa: E402
                        Node, ROLE_BURST, ROLE_CHARGE, ROLE_ROUTE, Rotation,
                        Settings, Store, Team)
-from app.player import FINISHED, IGNORED, MATCH, WRONG, Player  # noqa: E402
+from app.player import FINISHED, IGNORED, JUMP, MATCH, WRONG, Player  # noqa: E402
 
 results = []
 
@@ -93,12 +93,15 @@ def test_slot_mapping():
     """数字键按队伍顺序绑定。"""
     p, rot, axes, s = mk_player(charge_kinds=((KIND_SKILL, KIND_SKILL),),
                                 team=("佩丽卡", "管理员"))
+    now = [100.0]
+    p.clock = lambda: now[0]
     p.start()
     n0 = p.current()
     slot0 = p.store.team.normalized().index(n0.operator)
     check("第 1 位对应键 1", s.slot_key(slot0) == 0x31)
-    p.press(vk=0x32)          # 按第 2 位的键 -> 顺序错
+    p.press(vk=0x34)          # 无关位次的键 -> 容错忽略，不推进
     check("按错位次的键不推进", p.index == 0)
+    now[0] += 0.2
     p.press(vk=0x31)
     check("按对位次的键推进", p.index == 1)
 
@@ -404,6 +407,8 @@ def test_axis_repeat():
     axis = axes[0]
     axis.role = ROLE_CHARGE
     axis.repeat = 2
+    now = [200.0]
+    p.clock = lambda: now[0]
     p.start()
     check("循环轴起始在第 1 段", p.segment == 0 and p.index == 0)
 
@@ -413,12 +418,14 @@ def test_axis_repeat():
         (p.segment, p.index, p.repeat_done)))
     check("记录已走遍数", p.repeat_done == 1)
 
-    # 第二遍走完才进爆发轴
+    # 第二遍走完才进爆发轴（同一颗键，等过去重窗口再按）
+    now[0] += 0.2
     p.press(vk=s.slot_key(0), hold=False)
     check("第二遍走完进入爆发轴", p.segment == 1, repr(p.segment))
     check("换段后遍数归零", p.repeat_done == 0)
 
     # 爆发轴不循环：走完直接回到第一段
+    now[0] += 0.2
     p.press(vk=s.slot_key(0), hold=True)
     check("爆发轴走完回到第一段", p.segment == 0 and p.cycle == 1,
           repr((p.segment, p.cycle)))
@@ -452,9 +459,12 @@ def test_multi_stage():
         n.operator = "祀"
     rot_axes[0].nodes[0].stage = 1
     rot_axes[0].nodes[1].stage = 2
+    now = [300.0]
+    p.clock = lambda: now[0]
     p.start()
     key = p.settings.slot_key(0)
     r1, _ = p.press(vk=key, hold=False)
+    now[0] += 0.2            # 同一颗键要连着按两下，等过去重窗口再按第二下
     r2, _ = p.press(vk=key, hold=False)
     # 两段走完正好一轮结束、回到第一段，所以 cycle 加 1
     check("两段各按一次都推进",
@@ -922,6 +932,110 @@ def test_assets():
     check("干员立绘存在", n_portraits >= 30, "共 %d 张" % n_portraits)
 
 
+def test_tolerant_progress():
+    """误按不中断；按到后续技能自动追轴；短时间重复输入不多推进。"""
+    p, rot, axes, s = mk_player(charge_kinds=((KIND_SKILL, KIND_SKILL, KIND_COMBO),),
+                                team=("佩丽卡", "管理员", "陈千语"))
+    now = [1000.0]
+    p.clock = lambda: now[0]
+    p.start()
+    team = p.store.team.normalized()
+    digit2 = s.slot_key(team.index(axes[0].nodes[1].operator))
+
+    r, info = p.press(vk=digit2, hold=False)
+    check("按到本段后面的技能会自动追轴", r == JUMP)
+    check("追轴会报告跳过数量", info[0] is axes[0].nodes[1] and info[1] == 1)
+    check("追轴后继续等待下一技能", p.state == "running" and p.index == 2)
+
+    # 当前应按连携，误按一个绑定数字键：保持运行且不改变进度
+    now[0] += 0.20
+    r2, _ = p.press(vk=s.slot_key(0), hold=False)
+    check("普通误按不会暂停循环", p.state == "running")
+    check("普通误按不会乱推进", r2 in (WRONG, IGNORED) and p.index == 2)
+
+    now[0] += 0.20
+    r3, _ = p.press(vk=s.combo_key, hold=False)
+    check("误按后按对仍能继续", r3 == MATCH and p.state == "running")
+
+    # 两个连续节点故意使用同一个键：120ms 内的第二下视为抖动/多按
+    p2, _r2, axes2, s2 = mk_player(charge_kinds=((KIND_SKILL, KIND_SKILL),),
+                                   team=("佩丽卡", "管理员"))
+    axes2[0].nodes[1].operator = axes2[0].nodes[0].operator
+    now2 = [2000.0]
+    p2.clock = lambda: now2[0]
+    p2.start()
+    same_key = s2.slot_key(0)
+    first, _ = p2.press(vk=same_key, hold=False)
+    now2[0] += 0.05
+    duplicate, _ = p2.press(vk=same_key, hold=False)
+    check("第一次输入正常推进", first == MATCH and p2.index == 1)
+    check("短时间重复多按被吞掉", duplicate == IGNORED and p2.index == 1)
+    now2[0] += 0.20
+    next_real, _ = p2.press(vk=same_key, hold=False)
+    check("超过容错窗口后同键可正常推进",
+          next_real == MATCH and p2.state == "running")
+
+
+def test_export_import_merge():
+    """导出/导入：单编队导出带队伍，追加导入不破坏原有引用。"""
+    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    tmp = os.path.join(base, "data", "_selftest_export")
+    import shutil as _sh
+    _sh.rmtree(tmp, ignore_errors=True)
+    os.makedirs(tmp, exist_ok=True)
+    store = Store(tmp)
+    rot = store.active_rotation()
+    data = store.export_dict(rot)
+    check("单编队导出标记 scope", data.get("scope") == "rotation")
+    check("单编队导出带上了队伍",
+          data["rotations"][0]["team"]["members"][0] == rot.members()[0])
+    ids = {a["id"] for a in data["axes"]}
+    refs = set(data["rotations"][0].get("order") or [])
+    check("单编队导出的引用都包含在 axes 里", refs <= ids)
+
+    before_ids = [r.id for r in store.rotations]
+    before_axis = list(store.rotations[0].sequence())
+    ok, _msg = store.import_dict(data, mode="append")
+    check("追加导入成功", ok)
+    check("原有编队保持不变",
+          [r.id for r in store.rotations][:len(before_ids)] == before_ids
+          and store.rotations[0].sequence() == before_axis)
+    _sh.rmtree(tmp, ignore_errors=True)
+
+
+def test_updater_plan():
+    """更新器只挑缺失或哈希不一致的文件，且挡掉越界路径。"""
+    try:
+        from app import updater as up
+    except Exception as exc:  # noqa: BLE001
+        check("更新器模块可导入", False, repr(exc))
+        return
+    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    tmp = os.path.join(base, "data", "_selftest_update")
+    import shutil as _sh
+    _sh.rmtree(tmp, ignore_errors=True)
+    os.makedirs(tmp, exist_ok=True)
+    same = os.path.join(tmp, "same.py")
+    with open(same, "w", encoding="utf-8") as f:
+        f.write("x = 1\n")
+    digest = up.file_hash(same)
+    manifest = {"version": "9.9.9", "files": {
+        "same.py": {"sha256": digest, "size": 6},
+        "missing.py": {"sha256": "0" * 64, "size": 10},
+        "../evil.py": {"sha256": "0" * 64, "size": 1},
+    }}
+    names = [rel for rel, _info in up.plan(manifest, tmp)]
+    check("哈希一致的文件不下载", "same.py" not in names)
+    check("缺失的文件会下载", "missing.py" in names)
+    check("越界路径被挡掉", all(".." not in n for n in names))
+    check("safe_relpath 拒绝绝对路径",
+          up.safe_relpath("/etc/passwd") is None
+          and up.safe_relpath("C:/windows/x") is None)
+    check("版本比较可用",
+          up.is_newer("1.10.0", "1.9.9") and not up.is_newer("1.2.0", "1.3.0"))
+    _sh.rmtree(tmp, ignore_errors=True)
+
+
 def test_render():
     try:
         from app.iconart import compose, compose_combo, compose_portrait
@@ -960,6 +1074,7 @@ def main():
                test_infinite, test_wrong_key, test_key_map, test_any_mode,
                test_gamepad, test_pad_ult_modes, test_team_unique, test_move_item,
                test_axis_repeat, test_multi_stage, test_branch, test_axis_order, test_default_names,
+               test_tolerant_progress, test_export_import_merge, test_updater_plan,
                test_skip,
                test_empty_segment_skipped,
                test_hotdata_dirty_flow, test_per_rotation_team,
