@@ -6,6 +6,19 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+
+def _base():
+    """程序根目录：开发时是项目根，打包后是 exe 所在目录（data/ 就在旁边）。
+
+    打包后 __file__ 指向 _internal 内部，用它推目录会找不到 data/ 和 assets/，
+    所以统一走 app.paths.base_dir()。
+    """
+    try:
+        from app.paths import base_dir
+        return base_dir()
+    except Exception:  # noqa: BLE001
+        return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 from app.model import (Axis, KIND_COMBO, KIND_SKILL, KIND_ULT,  # noqa: E402
                        Node, ROLE_BURST, ROLE_CHARGE, ROLE_ROUTE, Rotation,
                        Settings, Store, Team)
@@ -137,7 +150,7 @@ def test_hold_threshold_setting():
 
 def test_hotdata_dirty_flow():
     """保存 / 放弃 的流程。"""
-    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base = _base()
     tmp = os.path.join(base, "data", "_selftest_tmp5")
     shutil.rmtree(tmp, ignore_errors=True)
     os.makedirs(tmp, exist_ok=True)
@@ -167,7 +180,7 @@ def test_hotdata_dirty_flow():
 
 def test_per_rotation_team():
     """每个编队有自己的队伍。"""
-    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base = _base()
     tmp = os.path.join(base, "data", "_selftest_tmp6")
     shutil.rmtree(tmp, ignore_errors=True)
     os.makedirs(tmp, exist_ok=True)
@@ -334,8 +347,7 @@ def test_pad_ult_modes():
     check("reset 清掉按住状态", not r4.held and r4.handle("up", X, 0.2) is None)
 
     # ---- 持久化 ----
-    tmp_dir = os.path.join(os.path.dirname(os.path.dirname(
-        os.path.abspath(__file__))), "data", "_selftest_tmp5")
+    tmp_dir = os.path.join(_base(), "data", "_selftest_tmp5")
     shutil.rmtree(tmp_dir, ignore_errors=True)
     os.makedirs(tmp_dir, exist_ok=True)
     store = Store(tmp_dir)
@@ -592,8 +604,7 @@ def test_axis_order():
           sum(1 for s in p.segments if s.role == "burst") == 2)
 
     # 存盘再读回，顺序不丢
-    tmp = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                       "data", "_selftest_tmp8")
+    tmp = os.path.join(_base(), "data", "_selftest_tmp8")
     shutil.rmtree(tmp, ignore_errors=True)
     os.makedirs(tmp, exist_ok=True)
     store2 = Store(tmp)
@@ -621,8 +632,7 @@ def test_default_names():
     check("不误判前缀相近的名字",
           next_numbered_name(["充能轴测试"], "充能轴") == "充能轴 · 1")
 
-    tmp = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                       "data", "_selftest_tmp7")
+    tmp = os.path.join(_base(), "data", "_selftest_tmp7")
     shutil.rmtree(tmp, ignore_errors=True)
     os.makedirs(tmp, exist_ok=True)
     store = Store(tmp)
@@ -669,7 +679,7 @@ def test_empty_segment_skipped():
 
 # ---------- 存储 ----------
 def test_store_roundtrip():
-    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base = _base()
     tmp = os.path.join(base, "data", "_selftest_tmp")
     shutil.rmtree(tmp, ignore_errors=True)
     os.makedirs(tmp, exist_ok=True)
@@ -700,8 +710,7 @@ def test_store_roundtrip():
 
 
 def test_settings_keys():
-    tmp_dir = os.path.join(os.path.dirname(os.path.dirname(
-        os.path.abspath(__file__))), "data", "_selftest_tmp4")
+    tmp_dir = os.path.join(_base(), "data", "_selftest_tmp4")
     shutil.rmtree(tmp_dir, ignore_errors=True)
     os.makedirs(tmp_dir, exist_ok=True)
     store = Store(tmp_dir)
@@ -720,7 +729,7 @@ def test_settings_keys():
 
 
 def test_export_import():
-    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base = _base()
     tmp = os.path.join(base, "data", "_selftest_tmp2")
     shutil.rmtree(tmp, ignore_errors=True)
     os.makedirs(tmp, exist_ok=True)
@@ -744,7 +753,7 @@ def test_export_import():
 
 def test_demo_and_clone():
     """示例编队排版 + 新建编队克隆独立轴（不串改别的编队）。"""
-    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base = _base()
     tmp = os.path.join(base, "data", "_selftest_tmp11")
     shutil.rmtree(tmp, ignore_errors=True)
     os.makedirs(tmp, exist_ok=True)
@@ -791,7 +800,7 @@ def test_import_modes():
     check("unique_name 跳过已占用",
           unique_name(["编队 · 1", "编队 · 1 (2)"], "编队 · 1") == "编队 · 1 (3)")
 
-    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base = _base()
     ta = os.path.join(base, "data", "_selftest_tmp12")
     tb = os.path.join(base, "data", "_selftest_tmp13")
     for d in (ta, tb):
@@ -831,7 +840,7 @@ def test_import_modes():
 def test_export_roundtrip():
     """导出/导入要带全所有内容：设置、循环次数、段号、分支卡片与跳转。"""
     from app.model import KIND_BRANCH
-    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base = _base()
     t1 = os.path.join(base, "data", "_selftest_tmp9")
     t2 = os.path.join(base, "data", "_selftest_tmp10")
     for d in (t1, t2):
@@ -921,7 +930,7 @@ def test_legacy_migration():
 
 # ---------- 资源 ----------
 def test_assets():
-    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base = _base()
     icons = os.path.join(base, "data", "icons")
     portraits = os.path.join(base, "data", "portraits")
     n_icons = len([f for f in os.listdir(icons) if f.endswith(".png")]) \
@@ -978,7 +987,7 @@ def test_tolerant_progress():
 
 def test_export_import_merge():
     """导出/导入：单编队导出带队伍，追加导入不破坏原有引用。"""
-    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base = _base()
     tmp = os.path.join(base, "data", "_selftest_export")
     import shutil as _sh
     _sh.rmtree(tmp, ignore_errors=True)
@@ -1010,7 +1019,7 @@ def test_updater_plan():
     except Exception as exc:  # noqa: BLE001
         check("更新器模块可导入", False, repr(exc))
         return
-    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base = _base()
     tmp = os.path.join(base, "data", "_selftest_update")
     import shutil as _sh
     _sh.rmtree(tmp, ignore_errors=True)
@@ -1042,7 +1051,7 @@ def test_render():
     except Exception as exc:  # noqa: BLE001
         check("图标合成模块可导入", False, repr(exc))
         return
-    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base = _base()
     glyph = os.path.join(base, "data", "icons", "佩丽卡_技能.png")
     portrait = os.path.join(base, "data", "portraits", "佩丽卡.png")
     if not os.path.isfile(glyph):
@@ -1086,7 +1095,7 @@ def main():
         except Exception as exc:  # noqa: BLE001
             check(fn.__name__ + " 未抛异常", False, repr(exc))
 
-    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base = _base()
     for d in ("_selftest_tmp", "_selftest_tmp2", "_selftest_tmp3",
               "_selftest_tmp4", "_selftest_tmp5", "_selftest_tmp6"):
         shutil.rmtree(os.path.join(base, "data", d), ignore_errors=True)
