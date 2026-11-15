@@ -8,7 +8,7 @@ import time
 import tkinter as tk
 
 from . import dpi, fonts, paths, theme
-from .brand import APP_TITLE, icon_png
+from .brand import APP_TITLE, APP_TITLE_VERSIONED, icon_png
 from .editor import Editor
 from .gamepad import GamepadListener, button_name
 from .icons import IconStore
@@ -42,7 +42,7 @@ class Application:
         except tk.TclError:
             pass
         fonts.setup()
-        self.root.title("%s · 明日方舟：终末地" % APP_TITLE)
+        self.root.title("%s · 明日方舟：终末地" % APP_TITLE_VERSIONED)
         self.root.geometry("1320x880")
         self.root.minsize(1180, 780)
         self.root.configure(bg=theme.BG)
@@ -274,8 +274,6 @@ class Application:
         self._after_press(result, info)
 
     def _handle_event(self, ev):
-        from .model import SLOT_VKS
-
         # 1) 绑定键盘（最优先：数字键 1~4 也要能绑）
         if self._bind_cb is not None:
             if ev.mouse or not ev.down or ev.vk in MODIFIER_VKS:
@@ -291,8 +289,9 @@ class Application:
             except tk.TclError:
                 self.test_panel = None
 
-        # 3) 数字键 1~4：要等松开才知道是短按还是长按
-        if ev.vk in SLOT_VKS and not ev.mouse:
+        # 3) 队伍键：要等松开才知道是短按还是长按
+        slot_vks = tuple(self.settings.slot_vks or ())
+        if ev.vk in slot_vks and not ev.mouse:
             if ev.down:
                 # 按住时系统会不断重复发送按下事件，只记第一次，
                 # 否则长按会被反复重置成短按
@@ -459,6 +458,10 @@ class Application:
     def begin_bind(self, callback):
         self._bind_cb = callback
 
+    def end_bind(self):
+        """取消键盘绑定（设置窗口被关掉时用，免得下一次按键被吞掉）。"""
+        self._bind_cb = None
+
     def begin_pad_bind(self, callback):
         if not self.gamepad.available:
             from tkinter import messagebox
@@ -467,6 +470,10 @@ class Application:
         if not self.gamepad._thread:
             self.gamepad.start()
         self._pad_bind_cb = callback
+
+    def end_pad_bind(self):
+        """取消手柄绑定。"""
+        self._pad_bind_cb = None
 
     def set_gamepad_enabled(self, enabled):
         self.gamepad.enabled = enabled

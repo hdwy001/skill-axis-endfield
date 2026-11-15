@@ -32,12 +32,22 @@ INCLUDE_FILES = ("main.py", "使用说明.md", "启动说明.txt")
 SKIP_DIRS = ("__pycache__",)
 
 
-def sha256_of(path):
-    h = hashlib.sha256()
+def published_bytes(path):
+    """GitHub 上实际会下发的字节。
+
+    仓库里存的是 LF，git 的 autocrlf 只在工作区把它转成 CRLF，
+    所以清单必须按「去掉 CR」后的内容算 —— 否则 Windows 上生成的清单
+    和客户端真正下载到的文件永远对不上，增量更新会每次都全量重下。
+    """
     with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            h.update(chunk)
-    return h.hexdigest()
+        data = f.read()
+    if b"\r\n" in data:
+        data = data.replace(b"\r\n", b"\n")
+    return data
+
+
+def sha256_of(path):
+    return hashlib.sha256(published_bytes(path)).hexdigest()
 
 
 def collect():
@@ -78,7 +88,7 @@ def main():
         full = files[rel]
         payload["files"][rel] = {
             "sha256": sha256_of(full),
-            "size": os.path.getsize(full),
+            "size": len(published_bytes(full)),
         }
     os.makedirs(OUT_DIR, exist_ok=True)
     with open(OUT_FILE, "w", encoding="utf-8", newline="\n") as f:

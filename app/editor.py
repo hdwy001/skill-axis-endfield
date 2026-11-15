@@ -8,7 +8,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 
 from . import dragfx, forms, theme
-from .brand import APP_SUB, APP_TITLE, icon_png
+from .brand import APP_SUB, APP_TITLE_VERSIONED, icon_png
 from .keys import vk_label
 from .menu import NiceMenu
 from .model import (KIND_BRANCH, KIND_CN, KIND_COMBO, KIND_SKILL, KINDS, KIND_ULT,
@@ -140,7 +140,7 @@ class Editor:
         self.brand_icon = tk.Label(brand, bg=theme.BG_2, bd=0,
                                    highlightthickness=0)
         self.brand_icon.pack(side="left", padx=(0, 10))
-        self.brand_name = tk.Label(brand, text=APP_TITLE, bg=theme.BG_2,
+        self.brand_name = tk.Label(brand, text=APP_TITLE_VERSIONED, bg=theme.BG_2,
                                    fg=theme.TEXT, font=theme.font(theme.F_TITLE, True))
         self.brand_name.pack(side="left")
         tk.Label(title, text=APP_SUB, bg=theme.BG_2,
@@ -149,9 +149,19 @@ class Editor:
         self._brand_photo = None
         self._brand_h = 0
         brand.bind("<Configure>", lambda e: self._resize_brand(e.height))
-        self.root.bind("<Configure>", lambda e: self._resize_brand(title.winfo_height() - 14),
-                       add="+")
-        self.root.after(30, lambda: self._resize_brand(title.winfo_height() - 14))
+
+        def _title_height():
+            """标题行的可用高度；窗口已经销毁时返回 0（别在收尾时报 TclError）。"""
+            try:
+                if not title.winfo_exists():
+                    return 0
+                return title.winfo_height() - 14
+            except tk.TclError:
+                return 0
+
+        self.root.bind("<Configure>",
+                       lambda e: self._resize_brand(_title_height()), add="+")
+        self.root.after(30, lambda: self._resize_brand(_title_height()))
 
         right = tk.Frame(head, bg=theme.BG_2)
         right.pack(side="right", padx=18, pady=16)

@@ -1,16 +1,16 @@
 {
-  "version": "1.1.0",
+  "version": "2.0.0",
   "app": "大祥老师的终末地助手",
-  "generated_at": "2026-11-15 16:58:10",
+  "generated_at": "2026-11-15 22:54:22",
   "repo": "hdwy001/skill-axis-endfield",
   "files": {
     "app/application.py": {
-      "sha256": "67346c959ead35d2873313a1614598669c9c2ad9bbf8ad955972486a6960bd52",
-      "size": 20025
+      "sha256": "9bd1beec74ea68635586ce516de259d413b992ad69e38dd5df97f0d6812d1d1e",
+      "size": 20324
     },
     "app/brand.py": {
-      "sha256": "c42dc5b30dbfc1423f1d71511bc8df47702028aa32df6e77b225a9bd68ecbb75",
-      "size": 1054
+      "sha256": "e1a778970991d0ac093b2e029e42dfe71ea80f7c556a2911607a35952d4b5d70",
+      "size": 1231
     },
     "app/dpi.py": {
       "sha256": "b57c64b097379ad96f15bfe43de96eda86213641ce1546a7624bfacd40b0b0a8",
@@ -21,8 +21,8 @@
       "size": 5773
     },
     "app/editor.py": {
-      "sha256": "ec794533f7805c94542c9f8278901497648ec986491e8291d2393eb864b7ec3e",
-      "size": 90831
+      "sha256": "94f1d0b7bf7c39fa3bd5e07af6f030e165d58ce8fb272e481f20d6eece98ad38",
+      "size": 91170
     },
     "app/elevation.py": {
       "sha256": "d28e03f64ec6c4999de25f7211a0b8ca04f49b392a5b93464cc4742f037e1deb",
@@ -69,8 +69,8 @@
       "size": 5577
     },
     "app/model.py": {
-      "sha256": "e3b5318d26da3c901dc7c7d443e7cff16949a7ba44dbb54f5935ec36ae92bdc0",
-      "size": 34767
+      "sha256": "2a7bc4a41657066eedf3199770cc2bf666271153c054b7bfd332d47d1cd563ce",
+      "size": 37529
     },
     "app/opspicker.py": {
       "sha256": "88f6ce36af77f06df07032dfb44f47b2e15360b35dd6379a3b2696c8f279e639",
@@ -93,12 +93,12 @@
       "size": 15566
     },
     "app/selftest.py": {
-      "sha256": "65eef2fb3e9c5911e5690946fd88979e3533bb6655ce24db32a254c8f15394e1",
-      "size": 46540
+      "sha256": "c0becc7682b3adbc3adbcd6299c7568393c4f9743bf0897c58853ddebb68a4ef",
+      "size": 49549
     },
     "app/settingsdialog.py": {
-      "sha256": "a093794a55c6786436b2e6891db4857c874d977142a3c5d7081d031d7ff4d7c7",
-      "size": 11004
+      "sha256": "9a6a3cba0ea8df6c884f7c2b79153ea658c708d14069a6bf61d79cc7cb8d4b6d",
+      "size": 21753
     },
     "app/testpanel.py": {
       "sha256": "063ef0deae049ef042c13450047b639bf48a835e78e0edc136ba3ec379f9fa2b",
@@ -109,8 +109,8 @@
       "size": 2912
     },
     "app/theme.py": {
-      "sha256": "a03ecec9133055a3b6be3d25606b8f087f0b2407ec81dbbb4f47154fcc31fb05",
-      "size": 1454
+      "sha256": "ac6656306b2209823987b46d47672a32d339b208607ac0e89cb7eb5e7c5fbfbf",
+      "size": 1396
     },
     "app/updatedialog.py": {
       "sha256": "f622d94cc4c81eb803a1191f674adca06a2e518e4f4ce3277e0ac65ff07cc6d6",
@@ -129,8 +129,8 @@
       "size": 3579
     },
     "使用说明.md": {
-      "sha256": "f2fa3c0ce41bb3edba5b4d0cf0b967d9f6b3e547824c355320d27673c9cb085b",
-      "size": 17760
+      "sha256": "ad2ca22c622aeda9712dac2c12a8fcb4d546b4f584719508b524c4aa1f919e9a",
+      "size": 19163
     },
     "启动说明.txt": {
       "sha256": "a2be2b0c7df3ec295f2a3d1d52b749e9ba0d8ccc349ca2444a3aea1a61d876e8",

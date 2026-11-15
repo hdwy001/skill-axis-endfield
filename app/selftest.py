@@ -728,6 +728,63 @@ def test_settings_keys():
     shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
+def test_custom_keybinds():
+    """键位自定义：改了立刻按新键判定，存档坏值能回落，冲突能查出来。"""
+    # ---- 键盘队伍键 ----
+    p, rot, axes, s = mk_player(charge_kinds=((KIND_SKILL, KIND_SKILL),),
+                                team=("佩丽卡", "管理员"))
+    s.slot_vks = (0x51, 0x52, 0x53, 0x54)        # Q W E R
+    p.start()
+    slot0 = p.store.team.normalized().index(p.current().operator)
+    check("自定义后 slot_key 生效", s.slot_key(slot0) == 0x51, hex(s.slot_key(slot0) or 0))
+    r_old, _ = p.press(vk=0x31)                   # 旧的 1 键不再算队伍键
+    check("旧键不再推进", r_old != MATCH and p.index == 0, r_old)
+    r_new, _ = p.press(vk=0x51)                   # 新键 Q
+    check("新键能推进", r_new == MATCH, r_new)
+
+    # ---- 连携键 ----
+    p2, _r2, _a2, s2 = mk_player(charge_kinds=((KIND_COMBO,),))
+    s2.combo_key = 0x46                           # F
+    p2.start()
+    r_combo, _ = p2.press(vk=0x46)
+    check("自定义连携键生效", r_combo == MATCH, r_combo)
+
+    # ---- 存档归一化 ----
+    s3 = Settings.from_dict({"slot_vks": [0x51, "坏值", 0x1200, 0x54]})
+    check("坏值回落默认", s3.slot_key(1) == 0x32, hex(s3.slot_key(1) or 0))
+    check("越界键码回落默认", s3.slot_key(2) == 0x33, hex(s3.slot_key(2) or 0))
+    check("好值保留", s3.slot_key(0) == 0x51 and s3.slot_key(3) == 0x54)
+    check("槽位键长度为 4", len(s3.slot_vks) == 4, repr(s3.slot_vks))
+    s4 = Settings.from_dict({"slot_vks": [0x51]})
+    check("缺位补齐默认", tuple(s4.slot_vks) == (0x51, 0x32, 0x33, 0x34), repr(s4.slot_vks))
+    check("老存档没有该字段也能用", Settings.from_dict({}).slot_key(0) == 0x31)
+
+    # ---- 持久化 ----
+    tmp = os.path.join(_base(), "data", "_selftest_tmp6")
+    shutil.rmtree(tmp, ignore_errors=True)
+    os.makedirs(tmp, exist_ok=True)
+    store = Store(tmp)
+    store.settings.slot_vks = (0x51, 0x52, 0x53, 0x54)
+    store.settings.combo_key = 0x46
+    store.settings.pad_combo = 0x10000
+    store.save_settings()
+    back = Store(tmp).settings
+    check("键位持久化",
+          list(back.slot_vks) == [0x51, 0x52, 0x53, 0x54] and back.combo_key == 0x46,
+          repr(back.slot_vks))
+    check("手柄键持久化", back.pad_combo == 0x10000, hex(back.pad_combo or 0))
+    shutil.rmtree(tmp, ignore_errors=True)
+
+    # ---- 冲突查询（设置界面靠这个拦重复绑定）----
+    s5 = Settings()
+    check("键盘冲突能查出来", s5.keyboard_owner(0x31) == "队伍 1", s5.keyboard_owner(0x31))
+    check("跳过自身不算冲突", s5.keyboard_owner(0x31, skip="队伍 1") is None)
+    check("快捷键也算占用", s5.keyboard_owner(s5.hotkey_start) == "开始/暂停",
+          s5.keyboard_owner(s5.hotkey_start))
+    check("手柄冲突能查出来", s5.pad_owner(0x0100) == "修饰键", s5.pad_owner(0x0100))
+    check("手柄未占用返回 None", s5.pad_owner(0x0080) is None)
+
+
 def test_export_import():
     base = _base()
     tmp = os.path.join(base, "data", "_selftest_tmp2")
@@ -1088,7 +1145,8 @@ def main():
                test_empty_segment_skipped,
                test_hotdata_dirty_flow, test_per_rotation_team,
                test_rotation_team_affects_keys, test_rename_rotation,
-               test_store_roundtrip, test_settings_keys, test_export_import, test_export_roundtrip, test_demo_and_clone, test_import_modes,
+               test_store_roundtrip, test_settings_keys, test_custom_keybinds,
+               test_export_import, test_export_roundtrip, test_demo_and_clone, test_import_modes,
                test_legacy_migration, test_assets, test_render, test_fonts):
         try:
             fn()

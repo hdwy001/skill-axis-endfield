@@ -1,7 +1,7 @@
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(1, 1, 0, 0),
-    prodvers=(1, 1, 0, 0),
+    filevers=(2, 0, 0, 0),
+    prodvers=(2, 0, 0, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -14,12 +14,12 @@ VSVersionInfo(
       StringTable('080404b0', [
         StringStruct('CompanyName', 'Luyoo'),
         StringStruct('FileDescription', '大祥老师的终末地助手'),
-        StringStruct('FileVersion', '1.0.0.0'),
+        StringStruct('FileVersion', '2.0.0.0'),
         StringStruct('InternalName', 'skill-axis'),
         StringStruct('LegalCopyright', 'Copyright (C) 2026 Luyoo'),
         StringStruct('OriginalFilename', '大祥老师的终末地助手.exe'),
         StringStruct('ProductName', '大祥老师的终末地助手'),
-        StringStruct('ProductVersion', '1.0.0.0')
+        StringStruct('ProductVersion', '2.0.0.0')
       ])
     ]),
     VarFileInfo([VarStruct('Translation', [2052, 1200])])

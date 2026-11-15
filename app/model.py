@@ -31,13 +31,38 @@ KINDS = (KIND_SKILL, KIND_COMBO, KIND_ULT)
 KIND_CN = {KIND_SKILL: "战技", KIND_COMBO: "连携", KIND_ULT: "终结",
            KIND_BRANCH: "分支"}
 
-# 技能键位规则（游戏内默认）：
+# 技能键位规则（游戏内默认，可在设置里自定义）：
 #   技能   = 1/2/3/4，对应队伍第 1~4 位，短按
 #   连携   = E，所有干员共用
 #   终结技 = 长按该干员的 1/2/3/4，超过 hold_ms 判定为长按
 SLOT_VKS = (0x31, 0x32, 0x33, 0x34)   # 1 2 3 4
 DEFAULT_COMBO_KEY = 0x45              # E
+DEFAULT_SLOT_VKS = SLOT_VKS           # 键盘：队伍 1~4 的出厂键位
 DEFAULT_HOLD_MS = 280
+
+# 合法虚拟键码范围（鼠标键是 0x1000 起的高位编码，不在此范围）
+VK_MIN, VK_MAX = 0x08, 0xFF
+
+
+def _as_vk(value, fallback=None):
+    """把一个值收成合法虚拟键码；不合法就回落（fallback 为 None 时返回 None）。"""
+    try:
+        vk = int(value)
+    except (TypeError, ValueError):
+        return fallback
+    if VK_MIN <= vk <= VK_MAX:
+        return vk
+    return fallback
+
+
+def normalize_slot_vks(value):
+    """键盘槽位键：收成 4 个合法键码，缺位/坏值用默认补（老存档兼容）。"""
+    items = list(value or [])
+    out = []
+    for i, default in enumerate(DEFAULT_SLOT_VKS):
+        raw = items[i] if i < len(items) else default
+        out.append(_as_vk(raw, default))
+    return tuple(out)
 
 # 默认手柄映射（XInput 位掩码）：X=技能、Y=连携、B=终结
 DEFAULT_PAD = {KIND_SKILL: 0x4000, KIND_COMBO: 0x8000, KIND_ULT: 0x2000}
@@ -453,6 +478,8 @@ class Settings:
     active_rotation: str = ""
     # 连携技统一按键
     combo_key: int = DEFAULT_COMBO_KEY
+    # 键盘：队伍 1~4 各自用哪个键（短按 = 战技，长按 = 终结技）
+    slot_vks: tuple = DEFAULT_SLOT_VKS
     # 长按判定阈值（毫秒）
     hold_ms: int = DEFAULT_HOLD_MS
     # 手柄映射：技能种类 -> 位掩码（旧版，保留兼容）
@@ -485,10 +512,56 @@ class Settings:
         return None
 
     def slot_key(self, slot):
-        """队伍第 slot 位（0 起）对应的键盘键。"""
-        if slot is None or not (0 <= slot < len(SLOT_VKS)):
+        """队伍第 slot 位（0 起）对应的键盘键（可在设置里改）。"""
+        keys = self.slot_vks or DEFAULT_SLOT_VKS
+        try:
+            slot = int(slot)
+        except (TypeError, ValueError):
             return None
-        return SLOT_VKS[slot]
+        if not (0 <= slot < len(keys)):
+            return None
+        return keys[slot]
+
+    # ---------- 键位冲突查询（设置界面查重用）----------
+    def keyboard_bindings(self):
+        """[(功能名, 键码)]：键盘上所有可自定义的键。"""
+        items = [("队伍 %d" % (i + 1), self.slot_key(i)) for i in range(4)]
+        items += [
+            ("连携技", self.combo_key),
+            ("开始/暂停", self.hotkey_start),
+            ("重置", self.hotkey_reset),
+            ("显示/隐藏", self.hotkey_visible),
+            ("点击穿透", self.hotkey_through),
+        ]
+        return items
+
+    def keyboard_owner(self, vk, skip=None):
+        """这个键盘键被谁占用了？没占用返回 None。skip = 忽略正在重绑的项。"""
+        if vk is None:
+            return None
+        for name, key in self.keyboard_bindings():
+            if name == skip:
+                continue
+            if key == vk:
+                return name
+        return None
+
+    def pad_bindings(self):
+        """[(功能名, 位掩码)]：手柄上所有可自定义的键。"""
+        items = [("连携技", self.pad_combo), ("修饰键", self.pad_modifier)]
+        items += [("队伍 %d" % (i + 1), self.pad_slot_key(i)) for i in range(4)]
+        return items
+
+    def pad_owner(self, bit, skip=None):
+        """这个手柄键被谁占用了？没占用返回 None。"""
+        if not bit:
+            return None
+        for name, key in self.pad_bindings():
+            if name == skip:
+                continue
+            if key == bit:
+                return name
+        return None
 
     def pad_for(self, kind):
         return (self.pad or {}).get(kind)
@@ -517,7 +590,8 @@ class Settings:
         if s.pad_ult_mode not in (PAD_ULT_HOLD, PAD_ULT_CHORD):
             s.pad_ult_mode = PAD_ULT_HOLD
         s.hold_ms = max(60, int(s.hold_ms or DEFAULT_HOLD_MS))
-        s.combo_key = int(s.combo_key or DEFAULT_COMBO_KEY)
+        s.combo_key = _as_vk(s.combo_key, DEFAULT_COMBO_KEY)
+        s.slot_vks = normalize_slot_vks(s.slot_vks)
         return s
 
 
