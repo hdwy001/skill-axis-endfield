@@ -39,6 +39,12 @@ PRIVATE_JSON = ("axes.json", "rotations.json", "team.json", "settings.json")
 BUILD_EXCLUDES = ("numpy", "pandas", "matplotlib", "scipy", "pytest",
                   "IPython", "setuptools", "pip")
 
+# 发布包文件名只用 ASCII：中文名传到 GitHub Release 会被编码搞坏
+# （实测 gh release upload 把「大祥老师的终末地助手-v2.0.0-win-x64.zip」变成
+#  「-v2.0.0-win-x64.zip」），而且历史发布一直是 EndfieldHelper-v… 的命名。
+# 想换前缀就设环境变量 SKILL_AXIS_ZIP_STEM。
+ZIP_STEM = os.environ.get("SKILL_AXIS_ZIP_STEM") or "EndfieldHelper"
+
 
 def _dump_json(path, payload):
     tmp = path + ".tmp"
@@ -114,7 +120,7 @@ def _sha256(path):
 
 def _make_zip(dist_dir, out_dir):
     """ZIP 内统一一个顶层目录，避免解压时把文件撒到当前目录。"""
-    zip_name = "%s-v%s-win-x64.zip" % (APP_NAME, APP_VERSION)
+    zip_name = "%s-v%s-win-x64.zip" % (ZIP_STEM, APP_VERSION)
     zip_path = os.path.join(dist_dir, zip_name)
     if os.path.exists(zip_path):
         os.remove(zip_path)
