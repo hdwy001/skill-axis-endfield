@@ -1149,6 +1149,28 @@ def test_updater_assets():
           os.path.isfile(os.path.join(backup, "data", "icons", "新干员_技能.png")))
     check("备份内容是旧字节",
           up.file_hash(os.path.join(backup, "data", "icons", "新干员_技能.png")) == old_digest)
+
+    # 换行口径：文本按 LF 比，二进制按原字节比（否则 CRLF 机器上会反复重下）
+    crlf = os.path.join(tmp, "note_crlf.md")
+    lf = os.path.join(tmp, "note_lf.md")
+    with open(crlf, "wb") as f:
+        f.write(b"line1\r\nline2\r\n")
+    with open(lf, "wb") as f:
+        f.write(b"line1\nline2\n")
+    check("文本 CRLF/LF 判为同一版本", up.file_hash(crlf) == up.file_hash(lf))
+    bin_a = os.path.join(tmp, "a.png")
+    bin_b = os.path.join(tmp, "b.png")
+    with open(bin_a, "wb") as f:
+        f.write(b"\x89PNG\r\n\x1a\n")
+    with open(bin_b, "wb") as f:
+        f.write(b"\x89PNG\n\x1a\n")
+    check("二进制不做换行归一", up.file_hash(bin_a) != up.file_hash(bin_b))
+
+    # 中文文件名必须做百分号编码，否则 urllib 拼请求行时会抛 UnicodeEncodeError
+    url = up.file_url("data/icons/小刻_技能.png")
+    check("中文路径被百分号编码", "%" in url and all(ord(c) < 128 for c in url), url)
+    check("路径分隔符保留", up.file_url("data/icons/a.png").endswith("data/icons/a.png"))
+
     _sh.rmtree(tmp, ignore_errors=True)
 
 

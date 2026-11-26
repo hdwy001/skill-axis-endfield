@@ -17,6 +17,7 @@ main.py 里装了 finder 让 exe 优先加载这些外部文件（见 _prefer_ex
 import hashlib
 import json
 import os
+import urllib.parse
 import urllib.request
 
 from .brand import APP_VERSION as VERSION
@@ -77,7 +78,21 @@ def is_newer(remote, local=None):
     return parse_version(remote) > parse_version(local or VERSION)
 
 
+TEXT_EXTS = (".py", ".md", ".json", ".txt", ".bat", ".cfg", ".toml",
+             ".yml", ".yaml", ".spec")
+
+
 def file_hash(path):
+    """本地文件哈希，口径与清单一致。
+
+    文本：把工作区的 CRLF 折成 LF 再算 —— 清单按「GitHub 会下发的字节」（LF）算，
+          否则 autocrlf 的机器上每个文本文件都会被判成「已变更」而反复重下。
+    二进制：原字节，绝不替换（PNG 里出现 0d 0a 是常态）。
+    """
+    if str(path).lower().endswith(TEXT_EXTS):
+        with open(path, "rb") as f:
+            data = f.read()
+        return hashlib.sha256(data.replace(b"\r\n", b"\n")).hexdigest()
     h = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(65536), b""):
@@ -118,8 +133,17 @@ def plan(manifest, base_dir):
     return todo
 
 
+def file_url(rel):
+    """拼出 raw 下载地址。
+
+    仓库里有大量中文文件名（data/icons/小刻_技能.png 等），URL 里必须做
+    百分号编码，否则 urllib 在拼请求行时会抛 UnicodeEncodeError('ascii')。
+    """
+    return RAW_BASE + urllib.parse.quote(str(rel).replace("\\", "/"), safe="/")
+
+
 def download(rel, timeout=20):
-    url = RAW_BASE + rel
+    url = file_url(rel)
     try:
         return http_get(url, timeout=timeout)
     except Exception as exc:

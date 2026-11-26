@@ -1,7 +1,7 @@
 {
   "version": "2.3.0",
   "app": "大祥老师的终末地助手",
-  "generated_at": "2026-11-27 02:04:50",
+  "generated_at": "2026-11-27 02:07:41",
   "repo": "hdwy001/skill-axis-endfield",
   "files": {
     "app/application.py": {
@@ -93,8 +93,8 @@
       "size": 15566
     },
     "app/selftest.py": {
-      "sha256": "fda3d1cb2cf322458b3167d01a4ba76aed8904145dfdad2df0149a0c6949cf7b",
-      "size": 52800
+      "sha256": "e2e472b4d6fff367e3a21dda355ad2844ce2d69457414a6105cf13121480fef6",
+      "size": 53872
     },
     "app/settingsdialog.py": {
       "sha256": "9a6a3cba0ea8df6c884f7c2b79153ea658c708d14069a6bf61d79cc7cb8d4b6d",
@@ -117,8 +117,8 @@
       "size": 8348
     },
     "app/updater.py": {
-      "sha256": "3f8a538b6838fea781fc8ffc24d6f236350bcf685f1aa55366b9fa79a53972f8",
-      "size": 5074
+      "sha256": "11b401b797a6abbe5a1a84c5d1a557451f84393b363a2456e6a6de7dedc3e1dc",
+      "size": 6075
     },
     "app/widgets.py": {
       "sha256": "f63a9b69a5d9689096572a1148b55b5ab7de7d1c2d6c854bff9a96353fb58492",
@@ -749,8 +749,8 @@
       "size": 3579
     },
     "使用说明.md": {
-      "sha256": "94c51e1f240b62d456d3edb7f87564349794873a791cd60d6e3c6c4c2421b2ea",
-      "size": 19463
+      "sha256": "782755508933b8a5a459dc14328136690f8a3ba1de071d7929af5314df0bf172",
+      "size": 19817
     },
     "启动说明.txt": {
       "sha256": "a2be2b0c7df3ec295f2a3d1d52b749e9ba0d8ccc349ca2444a3aea1a61d876e8",
