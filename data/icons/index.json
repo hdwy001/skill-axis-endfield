@@ -360,6 +360,42 @@
     "stage": 1
   },
   {
+    "file": "小刻_连携.png",
+    "cn": "小刻",
+    "en": "Kay",
+    "rarity": 6,
+    "class": "Vanguard",
+    "element": "Nature",
+    "kind": "combo",
+    "kind_cn": "连携",
+    "skill": "Really Kwik Smash",
+    "stage": 1
+  },
+  {
+    "file": "小刻_技能.png",
+    "cn": "小刻",
+    "en": "Kay",
+    "rarity": 6,
+    "class": "Vanguard",
+    "element": "Nature",
+    "kind": "skill",
+    "kind_cn": "技能",
+    "skill": "Really Heavy Bash",
+    "stage": 1
+  },
+  {
+    "file": "小刻_终结.png",
+    "cn": "小刻",
+    "en": "Kay",
+    "rarity": 6,
+    "class": "Vanguard",
+    "element": "Nature",
+    "kind": "ult",
+    "kind_cn": "终结",
+    "skill": "Really Sweet Combi-Bonker!",
+    "stage": 1
+  },
+  {
     "file": "庄方宜_连携.png",
     "cn": "庄方宜",
     "en": "Zhuang Fangyi",
