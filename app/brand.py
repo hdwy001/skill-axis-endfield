@@ -4,8 +4,8 @@ import os
 
 APP_TITLE = "大祥老师的终末地助手"
 APP_SUB = "明日方舟：终末地 · 编队编排"
-APP_VERSION = "2.2.0"
-APP_VERSION_CN = "2.2"
+APP_VERSION = "2.3.0"
+APP_VERSION_CN = "2.3"
 # 界面上显示的软件名（带版本号）；exe/压缩包名仍用 APP_TITLE，避免更新和快捷方式失联
 APP_TITLE_VERSIONED = "%s v%s" % (APP_TITLE, APP_VERSION)
 APP_PUBLISHER = "Luyoo"

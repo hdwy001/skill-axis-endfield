@@ -1,7 +1,7 @@
 {
-  "version": "2.2.0",
+  "version": "2.3.0",
   "app": "大祥老师的终末地助手",
-  "generated_at": "2026-11-27 01:44:16",
+  "generated_at": "2026-11-27 02:04:50",
   "repo": "hdwy001/skill-axis-endfield",
   "files": {
     "app/application.py": {
@@ -9,7 +9,7 @@
       "size": 20324
     },
     "app/brand.py": {
-      "sha256": "88060e449035f41fa42ccf2e31c3167b257cfabfc8d4d1f60997d59e164a8c81",
+      "sha256": "e453c0488a5d3394ccbd4399f165328ef5ea627080f33472288805e6b7b66cab",
       "size": 1231
     },
     "app/dpi.py": {
@@ -93,8 +93,8 @@
       "size": 15566
     },
     "app/selftest.py": {
-      "sha256": "15f548f73fe5f93c9ed9674ac724ba19d431c2c28d9d25bdae94f6014e23f1b3",
-      "size": 50305
+      "sha256": "fda3d1cb2cf322458b3167d01a4ba76aed8904145dfdad2df0149a0c6949cf7b",
+      "size": 52800
     },
     "app/settingsdialog.py": {
       "sha256": "9a6a3cba0ea8df6c884f7c2b79153ea658c708d14069a6bf61d79cc7cb8d4b6d",
@@ -123,6 +123,626 @@
     "app/widgets.py": {
       "sha256": "f63a9b69a5d9689096572a1148b55b5ab7de7d1c2d6c854bff9a96353fb58492",
       "size": 2198
+    },
+    "data/forms.json": {
+      "sha256": "18594f05edf2b8bf269fbd1047eb6f2d9b7ad93007237ee9735d6c2a2ec71026",
+      "size": 965
+    },
+    "data/icons/index.json": {
+      "sha256": "bb7d17a21c501e1c78e8a82ca902af4421f80b186e8d50f88ea5fb0c65f6a539",
+      "size": 26632
+    },
+    "data/icons/伊冯_技能.png": {
+      "sha256": "c002b59b32f57f237088bf088a980abd74bf0430991d03213ad83f56f313375e",
+      "size": 30069
+    },
+    "data/icons/伊冯_终结.png": {
+      "sha256": "898db03fcfb8d65ffe88b22e994e037a3568a9a9832deae4bf4bf8064540bea7",
+      "size": 30389
+    },
+    "data/icons/伊冯_连携.png": {
+      "sha256": "90b3187cf5be5d22fc1cbfac4922013686f87a2503ef5e540ce64f9711aec986",
+      "size": 26399
+    },
+    "data/icons/余烬_技能.png": {
+      "sha256": "8f81590347a7d701ac8e4817fc25c56ec71c860a6e460447748481aa18e5be87",
+      "size": 22455
+    },
+    "data/icons/余烬_终结.png": {
+      "sha256": "5ccae3221311d1fa30425873c4a4077ea5bb0de0b471e7c40086bdada9a65862",
+      "size": 31337
+    },
+    "data/icons/余烬_连携.png": {
+      "sha256": "e7af13757119cd96d741cfef9eeaa071c141f886f483da05477d2a8add9a2bae",
+      "size": 22129
+    },
+    "data/icons/佩丽卡_技能.png": {
+      "sha256": "288d4f7519301ab0b43fe887bb3822ba713e25f56c677e7d03b113208c9dcbac",
+      "size": 20979
+    },
+    "data/icons/佩丽卡_终结.png": {
+      "sha256": "b9b1c7eba6c8bc2a7fadb2d9de1252be841f54c0b687078a03b74f667e9c922c",
+      "size": 21599
+    },
+    "data/icons/佩丽卡_连携.png": {
+      "sha256": "d391c8e40044c2677cb145d3faaeeb95336f2b5624231d161141795c69a4593f",
+      "size": 19840
+    },
+    "data/icons/别礼_技能.png": {
+      "sha256": "b1b53b47eb9731a629c77082b71c53bd24bad5dab4c9c49aa3a5e60fea9c321a",
+      "size": 26276
+    },
+    "data/icons/别礼_终结.png": {
+      "sha256": "b3be293c0c938e021830832ef0dbea601f36e875b9180cd56a5b39320037568f",
+      "size": 31624
+    },
+    "data/icons/别礼_连携.png": {
+      "sha256": "d2b51e3baf4b3654ee18e9cc95cb5838a65cb09f2c43509b663afe531ad932ed",
+      "size": 26838
+    },
+    "data/icons/卡契尔_技能.png": {
+      "sha256": "d5ddd6ccca391fdb2c791ba406539c4d09d22905079eb7973b725d1e6a41f7d3",
+      "size": 28004
+    },
+    "data/icons/卡契尔_终结.png": {
+      "sha256": "eba1e0b8e6d56c0f9695b2a6b9d9e3ff84fca0c9df294298263c8f40fa2db8af",
+      "size": 22213
+    },
+    "data/icons/卡契尔_连携.png": {
+      "sha256": "f478ec152c0c7d2241e78116a3ec2fa9e059402cae78ebc6dd076bf0e958181c",
+      "size": 25284
+    },
+    "data/icons/卡缪_技能.png": {
+      "sha256": "e347c9241ba23c0bfc0d66afd43c92846a0eb17490c417c65d057535155d1d6c",
+      "size": 26640
+    },
+    "data/icons/卡缪_终结.png": {
+      "sha256": "d592c6b98aecf840e4284e6f5d4272111a1be72bacbadef92f609d361ea428c7",
+      "size": 30190
+    },
+    "data/icons/卡缪_连携.png": {
+      "sha256": "834385502edaf797e2171d73a3aab8d98880bd1ad6b75c9893842c3666145f0b",
+      "size": 28364
+    },
+    "data/icons/噗切娜_技能.png": {
+      "sha256": "e0dcd1c68967b3b327c64c49106ecabfa1e1ed976680c79286f1649f2aa511b8",
+      "size": 29577
+    },
+    "data/icons/噗切娜_技能2.png": {
+      "sha256": "e0dcd1c68967b3b327c64c49106ecabfa1e1ed976680c79286f1649f2aa511b8",
+      "size": 29577
+    },
+    "data/icons/噗切娜_终结.png": {
+      "sha256": "ac53d9b3242d9efaeac12a7a50db15827d55737a7e0ff8f260aad5dbb3321d32",
+      "size": 19570
+    },
+    "data/icons/噗切娜_连携.png": {
+      "sha256": "cf38d1970793adb65629e16b708e927cfb8ecc3efd7d4e0a9f818f3aab67472b",
+      "size": 25951
+    },
+    "data/icons/埃特拉_技能.png": {
+      "sha256": "3e7a7e8f07fd988634eb1331693ec2b8dc6dfca9a2c4db6d5b82e326c48605d8",
+      "size": 22676
+    },
+    "data/icons/埃特拉_终结.png": {
+      "sha256": "2521c3896388107f5bb6bf5f80be97f5fd37679b695b4035436fe0301ceed826",
+      "size": 24987
+    },
+    "data/icons/埃特拉_连携.png": {
+      "sha256": "d7955c14c22f63cb66642a0dc85d09fda783d7bef46c38b455658b0344fc3149",
+      "size": 21953
+    },
+    "data/icons/大潘_技能.png": {
+      "sha256": "f67d0e0ece962e42da11c79d7f814b75df9d8f49abe9c2ea573799c95bdd4f23",
+      "size": 20327
+    },
+    "data/icons/大潘_终结.png": {
+      "sha256": "0c3bb5cac6dc78f51b90f55d617a93a59b632643270f29308d039845be07adde",
+      "size": 21828
+    },
+    "data/icons/大潘_连携.png": {
+      "sha256": "ae34c7436923eb2cc6ffc635313c0798e40e3fc49ed6e487e2109f1859db8d49",
+      "size": 22018
+    },
+    "data/icons/安塔尔_技能.png": {
+      "sha256": "28125f74c7e438914287cd6755dcd668248b055944780ec72e3a60bd5d41486a",
+      "size": 23493
+    },
+    "data/icons/安塔尔_终结.png": {
+      "sha256": "fc2561f2dae6e384dec698a0e5c39f38595ac823f574230f50a312eaef80a5d7",
+      "size": 28229
+    },
+    "data/icons/安塔尔_连携.png": {
+      "sha256": "06778a51bac824fb016c287461ed5709f4c27584e640084df32b028442448cdd",
+      "size": 23357
+    },
+    "data/icons/小刻_技能.png": {
+      "sha256": "f76a6471bd2d4103894691927472be4a5b58068d3fa11332cd0a0595b1d06133",
+      "size": 28730
+    },
+    "data/icons/小刻_终结.png": {
+      "sha256": "e88e9e5835b4ff13187254f4d30783fb5cd38be98a82400353d1e16a7a872fa5",
+      "size": 28243
+    },
+    "data/icons/小刻_连携.png": {
+      "sha256": "d4d34462bc90635d9a0fc949e1fd416987fef9d5c588041eb338814712c24512",
+      "size": 24407
+    },
+    "data/icons/庄方宜_技能.png": {
+      "sha256": "fa148c43ed1720f4e64621c895393515283d84b3b8b13cc046cc501f9ffe7800",
+      "size": 27995
+    },
+    "data/icons/庄方宜_终结.png": {
+      "sha256": "80ca536c098cfaa22f32bf8f72eb6927b5b908f040d01f07c4cf69d36f149e41",
+      "size": 31459
+    },
+    "data/icons/庄方宜_连携.png": {
+      "sha256": "90bcd0cc39d2667d80e7d738300219b4bac61d5be6d51254cbaa4a4898de2691",
+      "size": 23470
+    },
+    "data/icons/弧光_技能.png": {
+      "sha256": "3ebbecc7432d0fc3c86371f2bafe9dfae5a48ae965e813d0ce7492d4b45760ad",
+      "size": 26456
+    },
+    "data/icons/弧光_终结.png": {
+      "sha256": "5ea283892e3c27e454a139e36132e5ec9ba785ec5cfc388901bab0673bbcde2b",
+      "size": 21899
+    },
+    "data/icons/弧光_连携.png": {
+      "sha256": "b9560b3e7886287d09b874505ffdb1cac063141587f960fb950698b3a9e34dad",
+      "size": 22147
+    },
+    "data/icons/弭弗_技能.png": {
+      "sha256": "afb09ead3e56174ec1f6666b60392ffcf78493dccc05db62ef62e2e72effa32c",
+      "size": 22337
+    },
+    "data/icons/弭弗_终结.png": {
+      "sha256": "531239fd266398835c90cdb4fe0ddb6c6539b827e4f462ab2e4a264d9608c3db",
+      "size": 20082
+    },
+    "data/icons/弭弗_连携.png": {
+      "sha256": "488027baf40c8a2c54919e61732942d42719c48d882866ca54159bdc3a5cb157",
+      "size": 26183
+    },
+    "data/icons/提弗洛斯_技能.png": {
+      "sha256": "c5e56d25ba9a8eea620b8513e8872b62912f7fb0838d03f1f7cca0cf3d045eb2",
+      "size": 28058
+    },
+    "data/icons/提弗洛斯_终结.png": {
+      "sha256": "ef84b1e095d3060b069e3d0ccff2de2997568a7a311e14d6194b8f3e790143eb",
+      "size": 31785
+    },
+    "data/icons/提弗洛斯_连携.png": {
+      "sha256": "43567e551ff3849c62898e7f2b51bbbb8406496f84de5d51861ca19ce7a2f62b",
+      "size": 29125
+    },
+    "data/icons/明河_技能.png": {
+      "sha256": "414574fb8bf435c11295cdd712ced36e941b74aba9a319b13deb1e8d2f17071d",
+      "size": 23088
+    },
+    "data/icons/明河_技能2.png": {
+      "sha256": "414574fb8bf435c11295cdd712ced36e941b74aba9a319b13deb1e8d2f17071d",
+      "size": 23088
+    },
+    "data/icons/明河_终结.png": {
+      "sha256": "818b5eeab38702eefc189804684ad671bfdefa5ba711ceb47dc600a70cab4684",
+      "size": 21923
+    },
+    "data/icons/明河_连携.png": {
+      "sha256": "a5ef3601f9eafec90fc36ae46f8a8f32fe6875ea7665a3741063b8b8636d21e4",
+      "size": 23304
+    },
+    "data/icons/昼雪_技能.png": {
+      "sha256": "7751afd4346d8609e1f35fc4c09f7bcd28dfb689b0ce94b32e66ae5d1a3da11b",
+      "size": 23397
+    },
+    "data/icons/昼雪_终结.png": {
+      "sha256": "0bd1d8b1baee8aee9c4d939159bcdd132b1a78bebf5d4ce591465ff8981a0891",
+      "size": 25019
+    },
+    "data/icons/昼雪_连携.png": {
+      "sha256": "1cf4bcdedbb6ffab6a0f116b3e4cb5006d5c943599033b4b0cf2e08565a64a0f",
+      "size": 24476
+    },
+    "data/icons/梨诺_技能.png": {
+      "sha256": "789f2380a7552415118d5330417775848ec24b0c1ec0d33a51dd1fc5e85e18da",
+      "size": 26340
+    },
+    "data/icons/梨诺_技能2.png": {
+      "sha256": "789f2380a7552415118d5330417775848ec24b0c1ec0d33a51dd1fc5e85e18da",
+      "size": 26340
+    },
+    "data/icons/梨诺_终结.png": {
+      "sha256": "067ffcc2aa8501f20d18724729ba909e0d2afe3f023f5fb847238733085947b8",
+      "size": 26729
+    },
+    "data/icons/梨诺_连携.png": {
+      "sha256": "100dc046b408ebc55cff94fc30a9ae6e86175493ad20ed561a1591075f6fbe7b",
+      "size": 26427
+    },
+    "data/icons/汤汤_技能.png": {
+      "sha256": "26821b43aa2d8dcc31aecb61e42aa2152ec664cc7f0e152732aec22669efa661",
+      "size": 26701
+    },
+    "data/icons/汤汤_终结.png": {
+      "sha256": "4ad03228efc61b1beed46ff66c36b820f0c31e054c9322b4b75ed2f4304bd2f4",
+      "size": 25167
+    },
+    "data/icons/汤汤_连携.png": {
+      "sha256": "2b00dc49eedaaae1ec5421e34280e8ea93dbc317c436b2c4d9f24ee747660a31",
+      "size": 32169
+    },
+    "data/icons/洁尔佩塔_技能.png": {
+      "sha256": "bb61b1c41b3f9269fe02259bbeea27f3dd58bfb2239b70a88e19d35170634a3d",
+      "size": 27457
+    },
+    "data/icons/洁尔佩塔_终结.png": {
+      "sha256": "5e1052a5f604b52a26121b9e6781abba0dda23ac85d135cc9860bb46e15aef57",
+      "size": 21344
+    },
+    "data/icons/洁尔佩塔_连携.png": {
+      "sha256": "60cc6ec1aceba4d70bedfdc02fae768fdb4263360569e26d19868c6de02c7eab",
+      "size": 21098
+    },
+    "data/icons/洛茜_技能.png": {
+      "sha256": "38c65e1a8563828e3e922464d9360489f0a8d2dcdef0df17c3476e413545671f",
+      "size": 32177
+    },
+    "data/icons/洛茜_终结.png": {
+      "sha256": "9d95581b300b7c131f4e195909270086cc128bef1e643445345f2995b89a5584",
+      "size": 35659
+    },
+    "data/icons/洛茜_连携.png": {
+      "sha256": "76cd890aa6f614951229d96a19d9a5d2903036506b56ad1f00d4ea2114d22284",
+      "size": 28280
+    },
+    "data/icons/狼卫_技能.png": {
+      "sha256": "0bddf0e0683a16e3fb6a1cb4a865943f6eaa8d0c1e418213cb6fc998aafdc9ba",
+      "size": 25415
+    },
+    "data/icons/狼卫_终结.png": {
+      "sha256": "3ae32dde593a4033f10c60bd2b9ccfd251def1724594ee0a0ab2f6ddb93ba7d8",
+      "size": 26137
+    },
+    "data/icons/狼卫_连携.png": {
+      "sha256": "411faf4969bb6a2ba19dbd7aa78a31e94ee5c885361425f25c3d87b37b312d81",
+      "size": 23905
+    },
+    "data/icons/祀_技能.png": {
+      "sha256": "2175ad0950e01895338a561ce75a85cacc2459c18c39466424fc781ad1be4c98",
+      "size": 29625
+    },
+    "data/icons/祀_技能2.png": {
+      "sha256": "2175ad0950e01895338a561ce75a85cacc2459c18c39466424fc781ad1be4c98",
+      "size": 29625
+    },
+    "data/icons/祀_技能3.png": {
+      "sha256": "2175ad0950e01895338a561ce75a85cacc2459c18c39466424fc781ad1be4c98",
+      "size": 29625
+    },
+    "data/icons/祀_终结.png": {
+      "sha256": "56bdaec174b3d1235a799a63599ac23731eab7f9e2f9f52cb55547e51bf6d010",
+      "size": 24429
+    },
+    "data/icons/祀_连携.png": {
+      "sha256": "82bb69a2f6c49d0b2bcb50c9a67b9a7813c478cb456785278a4d38b544088489",
+      "size": 20107
+    },
+    "data/icons/秋栗_技能.png": {
+      "sha256": "1147f62e02ae74440e82ffc83e65e71a0ec210f84f1b077a79acf08331113678",
+      "size": 21750
+    },
+    "data/icons/秋栗_终结.png": {
+      "sha256": "214f75af8027b430bce3de07c25fddef3893a50be849913788e44888dcda7ce7",
+      "size": 27292
+    },
+    "data/icons/秋栗_连携.png": {
+      "sha256": "7770781eef20aed4249b9fde733a3b88a710cbe69fde1275830275a2a80593c3",
+      "size": 20349
+    },
+    "data/icons/管理员_技能.png": {
+      "sha256": "4145744c6d81941427b72d881c9643b4dcdcfc4ddf2672208eab69484012521a",
+      "size": 22171
+    },
+    "data/icons/管理员_终结.png": {
+      "sha256": "cd6fa6c782bd1c8ccbb99b104cc89f2d49e2d86664f4de61e4c566ffa3b4ba05",
+      "size": 20304
+    },
+    "data/icons/管理员_连携.png": {
+      "sha256": "44dba7ea1b2909c9a908338376a160a6811ee88cb9972cc9399720c930660c38",
+      "size": 20927
+    },
+    "data/icons/米米诺_技能.png": {
+      "sha256": "6ded180630d43747df7bc10bf74fd80a6ce44fee109efe2af67bbf14857ab9c6",
+      "size": 33016
+    },
+    "data/icons/米米诺_终结.png": {
+      "sha256": "142955d0da1c9d9f75b8487bd3a45191564474a61f8213ce48c8ceb8a0f0b42f",
+      "size": 23114
+    },
+    "data/icons/米米诺_连携.png": {
+      "sha256": "f5ef13a39243fc8ab8b8c6a3b3f0ca1c50bd9a83e77f24bf9c25f5fd38677554",
+      "size": 30013
+    },
+    "data/icons/艾尔黛拉_技能.png": {
+      "sha256": "084a484a3b53f8b38089f857488900a2059f6e5ffed790c22969b54871ff547a",
+      "size": 23160
+    },
+    "data/icons/艾尔黛拉_终结.png": {
+      "sha256": "1fb0d447b74cda716efb166a33e08800883a1167c783a9e05498e6b971ad8f61",
+      "size": 30124
+    },
+    "data/icons/艾尔黛拉_连携.png": {
+      "sha256": "6e5ced0cd40aee461eb270e316203057e1a25b167e64d5e6d10863f3714f10fc",
+      "size": 25694
+    },
+    "data/icons/艾维文娜_技能.png": {
+      "sha256": "fc2504f45dc9214dd75b0cf3bfe7c559a039ea5d9afa26f5e12909ceae40c356",
+      "size": 25794
+    },
+    "data/icons/艾维文娜_终结.png": {
+      "sha256": "c382e26eff2017c5b068b5b75dcdf637ed3f9be4b02e53371bb8cfb2bf7a30a5",
+      "size": 26331
+    },
+    "data/icons/艾维文娜_连携.png": {
+      "sha256": "fcf977900c1e8f6a49ba5ee5cb2b63e91f850a9cde5e0158a379b5a055882649",
+      "size": 24181
+    },
+    "data/icons/莱万汀_技能.png": {
+      "sha256": "eade94df4f4c007899d641454b93e06f890328b0a0f52a058e06bdf10d8e2131",
+      "size": 26030
+    },
+    "data/icons/莱万汀_终结.png": {
+      "sha256": "02b9388054a87513903d05e92bcb11f9235f3f074c096d3cc3e7ab5acfa98957",
+      "size": 31837
+    },
+    "data/icons/莱万汀_连携.png": {
+      "sha256": "dbf446e99bd7e4f359796ecb4d2e7d0a0b57b8542c359e2aa9cff3c81a95a48d",
+      "size": 22778
+    },
+    "data/icons/萤石_技能.png": {
+      "sha256": "8c320acf1c38190ca3b0a9089c7275ba5ed2d28b35f032f25580dbba9dfcb60a",
+      "size": 23551
+    },
+    "data/icons/萤石_终结.png": {
+      "sha256": "6ca6b6a34b690d4db4779f4495bc595c1b2aa4edb70843b6993cdeef41f0da8d",
+      "size": 23971
+    },
+    "data/icons/萤石_连携.png": {
+      "sha256": "f23fb71098f9d7a8bd18b07ccc79c347841a3bd170b1eb3aba25909e57b767fa",
+      "size": 25934
+    },
+    "data/icons/诀_技能.png": {
+      "sha256": "cd583f13c2a435ddef91c9255ccdad67879295a88010edfcc871ef9e58f791e1",
+      "size": 28573
+    },
+    "data/icons/诀_技能2.png": {
+      "sha256": "485ebea196a10a83ada50fea37052cb31d05a82dc02e3d0fe6cf2a190855a1f2",
+      "size": 24741
+    },
+    "data/icons/诀_终结.png": {
+      "sha256": "aa56abfa40d47f754afed74281fbf8039fa8d5a7570ca4e1ebaf8b2d98f511d4",
+      "size": 24117
+    },
+    "data/icons/诀_终结2.png": {
+      "sha256": "669af8d33caa18c737384dbad228c6a6af959b89c653f3555bc0a13798d0ee72",
+      "size": 23680
+    },
+    "data/icons/诀_连携.png": {
+      "sha256": "5437adba5277bc0baf830abeb0ae462ae6e4ab9ef1595bafdf1c29bad8bdc5ac",
+      "size": 22844
+    },
+    "data/icons/诀_连携2.png": {
+      "sha256": "a3b29074746aa08543c4df87da10432d66d96b0a8632f9dbe3d8dba35cf7ec9d",
+      "size": 23477
+    },
+    "data/icons/赛希_技能.png": {
+      "sha256": "0038b7fd0778629eb0f72adda1628ffe81a1c8e50f48164e12c3cc0868a2707e",
+      "size": 21845
+    },
+    "data/icons/赛希_终结.png": {
+      "sha256": "1aa60e9fd285c23d586bafadbce855172f2c6cac4732998abd6bac789c12ebc8",
+      "size": 21525
+    },
+    "data/icons/赛希_连携.png": {
+      "sha256": "02e7d5e909fa095b95a36ba635ccdb14e917ba48ecbc5e363281462c33ef0aa1",
+      "size": 20733
+    },
+    "data/icons/阿列什_技能.png": {
+      "sha256": "d337e32ceb61b03fa3d1e010fc9f13bf9080243defbf58469898a1d1a0ce212b",
+      "size": 24379
+    },
+    "data/icons/阿列什_终结.png": {
+      "sha256": "e9d2154fde17c007bb39d83d3e28037066d22e8ba41d06efed8dba7ef3df47f9",
+      "size": 30285
+    },
+    "data/icons/阿列什_连携.png": {
+      "sha256": "fdf1af37b442615819e0f929f95e0720990bb9c64e5784155c3994bbcfd17b06",
+      "size": 29606
+    },
+    "data/icons/陈千语_技能.png": {
+      "sha256": "48310299ba92cd78e29879baa6ba675a8ee5b5753b15c5994f8b408e8f821262",
+      "size": 25157
+    },
+    "data/icons/陈千语_终结.png": {
+      "sha256": "9acf6176f818814b9b31b6f15d22f44219e48e456177a64551cef87401dcca31",
+      "size": 30302
+    },
+    "data/icons/陈千语_连携.png": {
+      "sha256": "a7d66349ddc0f78cf2d07aaa6be6aaa79b92babb3522e9f606593d36fdbc3801",
+      "size": 28048
+    },
+    "data/icons/骏卫_技能.png": {
+      "sha256": "8ee3fe27930672aa6cb56ea567b33f1ecd31b570833972452ccb2caafa039b6a",
+      "size": 28052
+    },
+    "data/icons/骏卫_终结.png": {
+      "sha256": "57fc3240dfe1634bcdc340d3c980b7d9f737165b359e3d6e409a363fbd51ca6e",
+      "size": 27090
+    },
+    "data/icons/骏卫_连携.png": {
+      "sha256": "1cab2a8949ec4c306cb65d220b950ee94112111a14d93f5fe5ffc4b512b60356",
+      "size": 32842
+    },
+    "data/icons/黎风_技能.png": {
+      "sha256": "8c0bf496916caf9f925515b0b6fc53ec3909d97dd2ad6871b00cb60bed7ade58",
+      "size": 21705
+    },
+    "data/icons/黎风_终结.png": {
+      "sha256": "82366f7c9f7d3b78bdf0db146f0fd557f4eea7b9aa8ac649286040c958753e7e",
+      "size": 22076
+    },
+    "data/icons/黎风_连携.png": {
+      "sha256": "4ea3c05e7fd31e47bfb007be99f33c4ba5a4fddef4672588efbee07d6b92d634",
+      "size": 25388
+    },
+    "data/portraits/index.json": {
+      "sha256": "923d644c047aeb56f1b0d60978eb6e6bb100442f626f41248c3170314036c17f",
+      "size": 2529
+    },
+    "data/portraits/伊冯.png": {
+      "sha256": "0e433140b48acf790745b91075416d44321daf5e83e2162eb32cf5d433402c73",
+      "size": 33970
+    },
+    "data/portraits/余烬.png": {
+      "sha256": "edc91a007f0c5bf1380bb55862e970ef33ba7387b41b78a5c23eb51002ecdad9",
+      "size": 32532
+    },
+    "data/portraits/佩丽卡.png": {
+      "sha256": "bba1a80b33ed1e7130717bab7c3c8ef8c40b7f3130c59021326a06f19c771e0a",
+      "size": 33542
+    },
+    "data/portraits/别礼.png": {
+      "sha256": "7a1d560f76041acdac9809f04881c02995529378a2a57f9365f7202940f7fe07",
+      "size": 33717
+    },
+    "data/portraits/卡契尔.png": {
+      "sha256": "7dfa9b156af261a2fb26e51a729cd0046efa82da0942fd78a6295ff29c97f3ae",
+      "size": 26042
+    },
+    "data/portraits/卡缪.png": {
+      "sha256": "21e0069ab939d32e9e605e22fea0d2db46d79218c6245d509f65b030d611bcfd",
+      "size": 35112
+    },
+    "data/portraits/噗切娜.png": {
+      "sha256": "5f601f89739d4631fccbc0ae6db2a54d686f1103bda82aa2056072c8494e885a",
+      "size": 28997
+    },
+    "data/portraits/埃特拉.png": {
+      "sha256": "fca42b802c6b37b65eed537daa9d01ec9d2f8771d3c0168a7a52220b7ad24f66",
+      "size": 24084
+    },
+    "data/portraits/大潘.png": {
+      "sha256": "6182b61354b696745779b201babe922f986d4d1d16563c059ae14643c297e22b",
+      "size": 24455
+    },
+    "data/portraits/安塔尔.png": {
+      "sha256": "7297c0aae5fd0c1519cd1871b54d5ad1f9a5490482f7279869a36c028bb83ed8",
+      "size": 28926
+    },
+    "data/portraits/小刻.png": {
+      "sha256": "6b97dd6d18ad9a9461860d456ed80c004a4ad7511abde84731764dad0cc60d2e",
+      "size": 41633
+    },
+    "data/portraits/庄方宜.png": {
+      "sha256": "f18d8d5bce8b416b53c6dca3f7f7ec762b7253566a257a594e700d823ae2f05e",
+      "size": 38938
+    },
+    "data/portraits/弧光.png": {
+      "sha256": "371b0538da793deb2a7d883729249f3369b7716a49eb38d51d5571993b6643fa",
+      "size": 30375
+    },
+    "data/portraits/弭弗.png": {
+      "sha256": "67ede2c0328cac5f26f4a9a128ed858bc3eaabf73687ac67c8f0959e66ccf0b3",
+      "size": 39753
+    },
+    "data/portraits/提弗洛斯.png": {
+      "sha256": "1a2b2a73d2b44a384745a4c53ba1ae820fed79d52031a5b50b1a29133edb7482",
+      "size": 39896
+    },
+    "data/portraits/明河.png": {
+      "sha256": "f6e506f18b7f4b502fd70236401f913b55deca068455c59ff5d09c2dde1a790d",
+      "size": 40745
+    },
+    "data/portraits/昼雪.png": {
+      "sha256": "75d86cb903eed8c146b0a1e6c3238a637d16fce2cbf64620dc6382c2084c9699",
+      "size": 33959
+    },
+    "data/portraits/梨诺.png": {
+      "sha256": "f0530aba093e8ac9d7f310d779acff45004b542b8e006f6187fd0a1f7f60d96f",
+      "size": 33003
+    },
+    "data/portraits/汤汤.png": {
+      "sha256": "f88d97aed7b494851d47d1bb6b809c4470ae0d75b1f49adfa1b90bfd7618811b",
+      "size": 33631
+    },
+    "data/portraits/洁尔佩塔.png": {
+      "sha256": "67e32225039c9ba3667d3d2236f3d43a8d12839e845b78fbb93f332c58bcbecd",
+      "size": 33466
+    },
+    "data/portraits/洛茜.png": {
+      "sha256": "521361e1ca3755760c39aab12100a844510f251d0f10d6e4bbc3613d1bb4c4f0",
+      "size": 33872
+    },
+    "data/portraits/狼卫.png": {
+      "sha256": "64fe829d2edcbd65ec761183acdd5488f43a9ae044bb801648b2e86c62005a87",
+      "size": 33136
+    },
+    "data/portraits/祀.png": {
+      "sha256": "b312cc7bcd183ed5639807e611bf60dd65aa5cc492418999f55eeacad48b4bca",
+      "size": 40382
+    },
+    "data/portraits/秋栗.png": {
+      "sha256": "da930d7422f08eee6a70c5e19cfb68ca495c30a819c1d1498048cd88e190519d",
+      "size": 31790
+    },
+    "data/portraits/管理员.png": {
+      "sha256": "cda71fc9cdba9764bb30598c589574c56d08c2d01a86216aace63882ac3a8164",
+      "size": 68681
+    },
+    "data/portraits/米米诺.png": {
+      "sha256": "857fd112fdf1ed0c527b82e78241a496154bfd8d1880ae284f276f82a762040d",
+      "size": 42413
+    },
+    "data/portraits/艾尔黛拉.png": {
+      "sha256": "548ee4b0ee03cfe4eaa4e29dd4a0789210010c933eaff3b1d5b7c0f6abfdeca7",
+      "size": 31081
+    },
+    "data/portraits/艾维文娜.png": {
+      "sha256": "996c3a9dd8edebf932581ca2d16b8f6c48a4aeb9b43ac4b1888b2e89a00a63f6",
+      "size": 32244
+    },
+    "data/portraits/莱万汀.png": {
+      "sha256": "7f08288b170bcb84ffd5b16a728b01d7948aca65f781c32b0d2ba6197a4a2868",
+      "size": 31911
+    },
+    "data/portraits/萤石.png": {
+      "sha256": "284662a07a4306cc126251ef446fc0c2071a774f384ff1fc71d112b813716d7d",
+      "size": 32323
+    },
+    "data/portraits/诀.png": {
+      "sha256": "1d49665ad9d43f02194d32dafa82b374c76f4e1263022a18cfa5096404fe2bef",
+      "size": 33172
+    },
+    "data/portraits/赛希.png": {
+      "sha256": "264d58def83d32ca9f436cdf71adc866831f6ad6400ea77f80ccefbd2c95d91f",
+      "size": 34911
+    },
+    "data/portraits/阿列什.png": {
+      "sha256": "866dcc115dcf96fdd2f08c0ced84738bcd87a700f51cdc98996e9ad89242741f",
+      "size": 31659
+    },
+    "data/portraits/陈千语.png": {
+      "sha256": "54c47062c36714226ab7acadf238a19e4bcb15e66f184ab1633047898d3350cc",
+      "size": 30593
+    },
+    "data/portraits/骏卫.png": {
+      "sha256": "8304ee7349f99494dd1c64e8b696207ca368b020da50d1d804692d1a0ae0ae69",
+      "size": 29464
+    },
+    "data/portraits/黎风.png": {
+      "sha256": "e4a4384cdb1b92aad4c138280295f0e6498564ad624ec110eaa6308c1c0722cd",
+      "size": 31113
     },
     "main.py": {
       "sha256": "5489d6034733a670174b61f157ab59fa90f8a019a6cfe6f5acdaeb8095b2c9b4",

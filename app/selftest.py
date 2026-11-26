@@ -1102,6 +1102,56 @@ def test_updater_plan():
     _sh.rmtree(tmp, ignore_errors=True)
 
 
+def test_updater_assets():
+    """素材（图标/立绘）也能走增量更新：嵌套路径、二进制写入都要正确。"""
+    try:
+        from app import updater as up
+    except Exception as exc:  # noqa: BLE001
+        check("更新器模块可导入", False, repr(exc))
+        return
+    base = _base()
+    tmp = os.path.join(base, "data", "_selftest_update2")
+    import shutil as _sh
+    _sh.rmtree(tmp, ignore_errors=True)
+    os.makedirs(os.path.join(tmp, "data", "icons"), exist_ok=True)
+
+    # 本地有一张旧图标
+    old_path = os.path.join(tmp, "data", "icons", "新干员_技能.png")
+    with open(old_path, "wb") as f:
+        f.write(b"\x89PNG\r\n\x1a\nOLD")
+    old_digest = up.file_hash(old_path)
+
+    new_blob = b"\x89PNG\r\n\x1a\nNEW\x0d\x0a\x00\xff"   # 故意含 0d 0a，验证二进制不被破坏
+    manifest = {"version": "9.9.9", "files": {
+        "data/icons/新干员_技能.png": {"sha256": "0" * 64, "size": len(new_blob)},
+        "data/icons/新干员_连携.png": {"sha256": "0" * 64, "size": len(new_blob)},
+        "data/portraits/新干员.png": {"sha256": "0" * 64, "size": len(new_blob)},
+        "data/axes.json": {"sha256": "0" * 64, "size": 1},   # 私有数据不该在清单里
+    }}
+    todo = [rel for rel, _i in up.plan(manifest, tmp)]
+    check("素材变更会被计划更新", "data/icons/新干员_技能.png" in todo, repr(todo))
+    check("缺失素材会被计划更新", "data/icons/新干员_连携.png" in todo)
+    check("立绘目录同样支持", "data/portraits/新干员.png" in todo)
+    check("嵌套路径不会被当成越界", all(".." not in t for t in todo))
+
+    # 模拟下载：不联网，直接替换成我们的字节
+    _orig = up.download
+    up.download = lambda rel, timeout=20: new_blob
+    try:
+        written, backup = up.apply([(r, manifest["files"][r]) for r in todo], tmp)
+    finally:
+        up.download = _orig
+    check("素材写入数量正确", written == len(todo), "%s/%s" % (written, len(todo)))
+    with open(old_path, "rb") as f:
+        on_disk = f.read()
+    check("字节原样落盘（含 0d 0a）", on_disk == new_blob, repr(on_disk))
+    check("旧文件已备份",
+          os.path.isfile(os.path.join(backup, "data", "icons", "新干员_技能.png")))
+    check("备份内容是旧字节",
+          up.file_hash(os.path.join(backup, "data", "icons", "新干员_技能.png")) == old_digest)
+    _sh.rmtree(tmp, ignore_errors=True)
+
+
 def test_render():
     """图标渲染：现在是官方原图直接缩放（不再拿白色符号合成圆盘）。"""
     try:
@@ -1161,6 +1211,7 @@ def main():
                test_gamepad, test_pad_ult_modes, test_team_unique, test_move_item,
                test_axis_repeat, test_multi_stage, test_branch, test_axis_order, test_default_names,
                test_tolerant_progress, test_export_import_merge, test_updater_plan,
+               test_updater_assets,
                test_skip,
                test_empty_segment_skipped,
                test_hotdata_dirty_flow, test_per_rotation_team,
