@@ -1103,25 +1103,45 @@ def test_updater_plan():
 
 
 def test_render():
+    """图标渲染：现在是官方原图直接缩放（不再拿白色符号合成圆盘）。"""
     try:
-        from app.iconart import compose, compose_combo, compose_portrait
+        from app.icons import IconStore
     except Exception as exc:  # noqa: BLE001
-        check("图标合成模块可导入", False, repr(exc))
+        check("图标模块可导入", False, repr(exc))
         return
     base = _base()
-    glyph = os.path.join(base, "data", "icons", "佩丽卡_技能.png")
-    portrait = os.path.join(base, "data", "portraits", "佩丽卡.png")
-    if not os.path.isfile(glyph):
-        check("图标合成：素材存在", False)
+    store = IconStore(base)
+    value = store.icon_for("佩丽卡", "skill")
+    check("官方图标已登记", bool(value), value)
+    if not value:
         return
-    for kind in ("skill", "ult"):
-        im = compose(glyph, 96, "Electric", kind)
-        check("合成 %s 正常" % kind, im.size == (96, 96) and im.mode == "RGBA")
+    for size in (96, 48):
+        im = store.render_pil(value, size)
+        check("官方图标渲染 %dpx" % size,
+              im is not None and im.size == (size, size) and im.mode == "RGBA",
+              repr(im.size if im else None))
+    # 裁紧后圆盘应铺满画布：四周留白不能太多
+    im = store.render_pil(value, 96)
+    if im is not None:
+        alpha = im.split()[3].getbbox()
+        check("圆盘铺满画布（按 alpha 裁紧）",
+              alpha is not None and (alpha[2] - alpha[0]) >= 90,
+              repr(alpha))
+        check("官方图保留原色（不是白符号）",
+              any(min(p[:3]) < 120 for p in im.getdata() if p[3] > 200))
+    # 压暗版本
+    dim = store.render_pil(value, 48, dim=True)
+    check("压暗渲染正常", dim is not None and dim.size == (48, 48))
+
+    try:
+        from app.iconart import compose_portrait
+    except Exception as exc:  # noqa: BLE001
+        check("立绘合成模块可导入", False, repr(exc))
+        return
+    portrait = os.path.join(base, "data", "portraits", "佩丽卡.png")
     if os.path.isfile(portrait):
-        im = compose_combo(portrait, glyph, 96, "Electric")
-        check("合成连携图标正常", im.size == (96, 96) and im.mode == "RGBA")
         im2 = compose_portrait(portrait, 96, "Electric")
-        check("合成纯头像正常", im2.size == (96, 96) and im2.mode == "RGBA")
+        check("立绘圆盘合成正常", im2.size == (96, 96) and im2.mode == "RGBA")
 
 
 def test_fonts():

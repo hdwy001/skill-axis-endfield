@@ -14,7 +14,7 @@ try:
 except Exception:  # pragma: no cover
     _HAS_PIL = False
 
-from .iconart import compose, compose_combo, compose_portrait, element_rgb
+from .iconart import compose_portrait, element_rgb
 
 IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp")
 
@@ -29,6 +29,32 @@ def _dim(im, factor):
     g = g.point(lambda v: int(v * factor))
     b = b.point(lambda v: int(v * factor))
     return Image.merge("RGBA", (r, g, b, a))
+
+
+def _official_icon(path, size):
+    """把 data/icons 里的图标缩放成指定边长。
+
+    2026-11-27 起图标库换成**游戏官方原图**（204×204 RGBA，自带圆盘、白环、
+    元素色扇形），不再用白色符号 + 元素色现场合成。所以这里只做两件事：
+      1) 按 alpha 包围盒裁紧，让圆盘铺满画布（和以前的观感一致）；
+      2) 等比缩放到 size（不拉伸），非正方形时居中贴到透明画布。
+    """
+    im = Image.open(path).convert("RGBA")
+    bbox = im.split()[3].getbbox()
+    if bbox:
+        im = im.crop(bbox)
+    w, h = im.size
+    if w <= 0 or h <= 0:
+        return Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    scale = size / float(max(w, h))
+    tw = max(1, int(round(w * scale)))
+    th = max(1, int(round(h * scale)))
+    im = im.resize((tw, th), Image.LANCZOS)
+    if tw == size and th == size:
+        return im
+    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    canvas.alpha_composite(im, ((size - tw) // 2, (size - th) // 2))
+    return canvas
 
 
 def _circle_mask(im):
@@ -229,13 +255,7 @@ class IconStore:
         if key in self._cache:
             return self._cache[key]
         try:
-            if kind == "combo":
-                portrait = self.portrait_path(os.path.basename(path)) or ""
-                im = compose_combo(portrait, path, size, element)
-            elif kind == "ult":
-                im = compose(path, size, element, "ult")
-            else:
-                im = compose(path, size, element, "skill")
+            im = _official_icon(path, size)
             if dim:
                 im = _dim(im, DIMMED)
         except Exception:
@@ -292,13 +312,7 @@ class IconStore:
         if not _HAS_PIL:
             return self.get(os.path.basename(path), size)
         try:
-            if kind == "combo":
-                portrait = self.portrait_path(os.path.basename(path)) or ""
-                im = compose_combo(portrait, path, size, element)
-            elif kind == "ult":
-                im = compose(path, size, element, "ult")
-            else:
-                im = compose(path, size, element, "skill")
+            im = _official_icon(path, size)
             if dim:
                 im = _dim(im, DIMMED)
             return ImageTk.PhotoImage(im)

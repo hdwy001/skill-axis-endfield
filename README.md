@@ -75,7 +75,7 @@ app/
   editor.py             编辑器：技能轴顺序 / 队伍 / 技能 / 技能轴
   model.py              数据模型与存储（Axis / Rotation / Team / Settings）
   player.py             播放状态机
-  iconart.py            图标合成（技能 / 连携 / 终结三种样式）
+  iconart.py            立绘圆盘合成（技能图标已改用官方原图，不再合成）
   icons.py              图标库与立绘加载
   fonts.py              MiSans + 文字测宽 + Pillow 字体
   gamepad.py            XInput 手柄轮询
@@ -101,7 +101,10 @@ tools/                  抓素材 / 打包 / 设计稿渲染
 
 本项目为个人辅助工具，与鹰角网络无关。
 
-游戏图标、立绘等素材版权归**鹰角网络**所有，仓库中**不包含**这些素材，
-由 `tools/fetch_icons.py` 在本地从 wiki 拉取，仅供个人搭配工具使用，请勿二次分发。
+游戏图标、立绘等素材版权归**鹰角网络**所有，仅限个人搭配工具使用，请勿二次分发。
+
+仓库里的 `data/icons/` 与 `data/portraits/` 是为方便直接运行而随包提供的素材
+（36 位干员、116 张技能图标）；需要重新抓取时用 `tools/fetch_icons.py` /
+`tools/fetch_portraits.py`。
 
 使用本工具产生的任何后果由使用者自行承担。
