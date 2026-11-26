@@ -1,7 +1,7 @@
 {
-  "version": "2.0.0",
+  "version": "2.1.0",
   "app": "大祥老师的终末地助手",
-  "generated_at": "2026-11-15 22:54:22",
+  "generated_at": "2026-11-27 00:29:15",
   "repo": "hdwy001/skill-axis-endfield",
   "files": {
     "app/application.py": {
@@ -9,7 +9,7 @@
       "size": 20324
     },
     "app/brand.py": {
-      "sha256": "e1a778970991d0ac093b2e029e42dfe71ea80f7c556a2911607a35952d4b5d70",
+      "sha256": "d73f86e8914d8e20e1568d529816c0c59d64f1f6cdbdc419d9e871cfa912757a",
       "size": 1231
     },
     "app/dpi.py": {
@@ -129,7 +129,7 @@
       "size": 3579
     },
     "使用说明.md": {
-      "sha256": "ad2ca22c622aeda9712dac2c12a8fcb4d546b4f584719508b524c4aa1f919e9a",
+      "sha256": "b4465c4884a684020cc0126579e361ad82affe2b37340218a150e24af8172856",
       "size": 19163
     },
     "启动说明.txt": {
